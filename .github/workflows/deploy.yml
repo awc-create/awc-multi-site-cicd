@@ -1,0 +1,65 @@
+name: Multi-Site Deployment
+
+on:
+  push:
+    branches:
+      - main
+  repository_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout CI/CD Repository
+        uses: actions/checkout@v4
+
+  # Pipeline for Static & Blog Sites (Unit Tests Only)
+  static_blog_pipeline:
+    needs: setup
+    if: github.event.repository.name == 'portfolio-site' || github.event.repository.name == 'blog-site'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Project Repository
+        uses: actions/checkout@v4
+        with:
+          repository: your-username/${{ github.event.repository.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Unit Tests
+        run: npm test
+
+      - name: Deploy to Vercel
+        run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  # Pipeline for E-commerce, Dashboards, API-heavy Apps (Unit + Integration + E2E Tests)
+  full_testing_pipeline:
+    needs: setup
+    if: github.event.repository.name == 'ecommerce-app' || github.event.repository.name == 'dashboard' || github.event.repository.name == 'api-heavy-app'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Project Repository
+        uses: actions/checkout@v4
+        with:
+          repository: your-username/${{ github.event.repository.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Unit Tests
+        run: npm test
+
+      - name: Run Integration Tests
+        run: npm run test:integration
+
+      - name: Run E2E Tests
+        uses: cypress-io/github-action@v6
+        with:
+          start: npm run dev
+          wait-on: "http://localhost:3000"
+
+      - name: Deploy to Vercel
+        run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
