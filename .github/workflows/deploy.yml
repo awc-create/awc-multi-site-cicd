@@ -7,19 +7,41 @@ on:
   repository_dispatch:
 
 jobs:
-  setup:
+  detect-project-type:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout CI/CD Repository
-        uses: actions/checkout@v4
+    outputs:
+      project_type: ${{ steps.detect.outputs.PROJECT_TYPE }}
 
-  # Pipeline for Static & Blog Sites (Unit Tests Only)
-  static_blog_pipeline:
-    needs: setup
-    if: github.event.repository.name == 'portfolio-site' || github.event.repository.name == 'blog-site'
-    runs-on: ubuntu-latest
     steps:
-      - name: Checkout Project Repository
+      - name: Checkout Project Repo
+        uses: actions/checkout@v4
+        with:
+          repository: your-username/${{ github.event.repository.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read `.cicd-config.yml` (if exists)
+        id: detect
+        run: |
+          PROJECT_TYPE="static"
+          if [ -f ".cicd-config.yml" ]; then
+            PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
+          fi
+
+          # Auto-detect Terraform files
+          if ls *.tf 1> /dev/null 2>&1; then
+            PROJECT_TYPE="terraform"
+          fi
+
+          echo "PROJECT_TYPE=$PROJECT_TYPE" >> $GITHUB_ENV
+          echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
+
+  static_pipeline:
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.project_type == 'static'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Project Repo
         uses: actions/checkout@v4
         with:
           repository: your-username/${{ github.event.repository.name }}
@@ -34,13 +56,13 @@ jobs:
       - name: Deploy to Vercel
         run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
 
-  # Pipeline for E-commerce, Dashboards, API-heavy Apps (Unit + Integration + E2E Tests)
-  full_testing_pipeline:
-    needs: setup
-    if: github.event.repository.name == 'ecommerce-app' || github.event.repository.name == 'dashboard' || github.event.repository.name == 'api-heavy-app'
+  api_pipeline:
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.project_type == 'api-heavy'
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Project Repository
+      - name: Checkout Project Repo
         uses: actions/checkout@v4
         with:
           repository: your-username/${{ github.event.repository.name }}
@@ -55,7 +77,7 @@ jobs:
       - name: Run Integration Tests
         run: npm run test:integration
 
-      - name: Run E2E Tests
+      - name: Run End-to-End (E2E) Tests
         uses: cypress-io/github-action@v6
         with:
           start: npm run dev
@@ -63,3 +85,46 @@ jobs:
 
       - name: Deploy to Vercel
         run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  # 🌍 Terraform Pipeline (Terraform Validation + Deployment)
+  terraform_pipeline:
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.project_type == 'terraform'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Project Repo
+        uses: actions/checkout@v4
+        with:
+          repository: your-username/${{ github.event.repository.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: latest
+
+      - name: Initialize Terraform
+        run: terraform init
+
+      - name: Validate Terraform
+        run: terraform validate
+
+      - name: Apply Terraform (Manual Approval Required)
+        run: terraform apply -auto-approve
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  # Deployment to AWS (If Required)
+  # aws_deploy:
+  #   needs: terraform_pipeline
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Deploy to AWS (S3, EC2, etc.)
+  #       run: |
+  #         echo "Deploying to AWS..."
+  #         aws s3 sync ./build s3://your-s3-bucket-name --delete
+  #       env:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
