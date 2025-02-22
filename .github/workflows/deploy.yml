@@ -6,6 +6,11 @@ on:
       - main
   repository_dispatch:
 
+permissions:
+  contents: read  # ✅ Allows reading repository contents
+  actions: write  # ✅ Allows triggering other workflows
+  issues: write   # ✅ Allows posting deployment status
+
 jobs:
   detect-project-type:
     runs-on: ubuntu-latest
@@ -18,6 +23,19 @@ jobs:
         with:
           repository: awc-create/${{ github.event.repository.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # ✅ Fetches the full repository history
+          ref: main       # ✅ Ensures the correct branch is checked out
+
+      - name: Debug Repository Name
+        run: echo "Repository Name: ${{ github.event.repository.name }}"
+
+      - name: Verify package.json
+        run: |
+          if [ -f "package.json" ]; then
+            echo "✅ package.json found, proceeding with npm install"
+          else
+            echo "❌ Error: package.json not found!" && exit 1
+          fi
 
       - name: Read `.cicd-config.yml` (if exists)
         id: detect
@@ -47,11 +65,22 @@ jobs:
           repository: awc-create/${{ github.event.repository.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Verify package.json
+        run: |
+          if [ -f "package.json" ]; then
+            echo "✅ package.json found, proceeding with npm install"
+          else
+            echo "❌ Error: package.json not found!" && exit 1
+          fi
+
       - name: Install Dependencies
         run: npm install
 
       - name: Run Unit Tests
         run: npm test
+
+      - name: Build the Project
+        run: npm run build
 
       - name: Deploy to Vercel
         run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
@@ -68,6 +97,14 @@ jobs:
           repository: awc-create/${{ github.event.repository.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Verify package.json
+        run: |
+          if [ -f "package.json" ]; then
+            echo "✅ package.json found, proceeding with npm install"
+          else
+            echo "❌ Error: package.json not found!" && exit 1
+          fi
+
       - name: Install Dependencies
         run: npm install
 
@@ -83,10 +120,12 @@ jobs:
           start: npm run dev
           wait-on: "http://localhost:3000"
 
+      - name: Build the Project
+        run: npm run build
+
       - name: Deploy to Vercel
         run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
 
-  # 🌍 Terraform Pipeline (Terraform Validation + Deployment)
   terraform_pipeline:
     needs: detect-project-type
     if: needs.detect-project-type.outputs.project_type == 'terraform'
@@ -98,6 +137,14 @@ jobs:
         with:
           repository: awc-create/${{ github.event.repository.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Terraform Configuration
+        run: |
+          if [ -f "main.tf" ]; then
+            echo "✅ Terraform configuration found."
+          else
+            echo "❌ Error: Terraform files not found!" && exit 1
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -115,16 +162,3 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-  # Deployment to AWS (If Required)
-  # aws_deploy:
-  #   needs: terraform_pipeline
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Deploy to AWS (S3, EC2, etc.)
-  #       run: |
-  #         echo "Deploying to AWS..."
-  #         aws s3 sync ./build s3://your-s3-bucket-name --delete
-  #       env:
-  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
