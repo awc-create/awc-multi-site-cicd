@@ -16,7 +16,7 @@ jobs:
       - name: Checkout Project Repo
         uses: actions/checkout@v4
         with:
-          repository: your-username/${{ github.event.repository.name }}
+          repository: awc-create/${{ github.event.repository.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Read `.cicd-config.yml` (if exists)
@@ -44,7 +44,7 @@ jobs:
       - name: Checkout Project Repo
         uses: actions/checkout@v4
         with:
-          repository: your-username/${{ github.event.repository.name }}
+          repository: awc-create/${{ github.event.repository.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Dependencies
@@ -65,7 +65,7 @@ jobs:
       - name: Checkout Project Repo
         uses: actions/checkout@v4
         with:
-          repository: your-username/${{ github.event.repository.name }}
+          repository: awc-create/${{ github.event.repository.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Dependencies
@@ -96,7 +96,7 @@ jobs:
       - name: Checkout Project Repo
         uses: actions/checkout@v4
         with:
-          repository: your-username/${{ github.event.repository.name }}
+          repository: awc-create/${{ github.event.repository.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Terraform
