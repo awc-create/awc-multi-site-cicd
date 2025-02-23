@@ -64,7 +64,7 @@ jobs:
       - name: Checkout Project Repo
         uses: actions/checkout@v4
         with:
-          repository: awc-create/${{ github.event.repository.name }}
+          repository: ${{ github.event.client_payload.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify package.json
