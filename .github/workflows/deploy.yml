@@ -83,12 +83,24 @@ jobs:
           pwd
           ls -la
           find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
+          
+      - name: Debug Repository Checkout
+        run: |
+          echo "Current Repository: ${{ github.event.repository.name }}"
+          echo "Current Branch: $(git branch --show-current)"
+          pwd
+          ls -la
 
       - name: Run Unit Tests
         run: npm test || echo "No tests found, skipping..."
 
       - name: Build the Project
-        run: npm run build
+        run: |
+          cd ${{ github.workspace }}
+          if [ -d "apps/portfolio" ]; then
+            cd apps/portfolio
+          fi
+          npm run build
 
       - name: Deploy to Vercel
         run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
