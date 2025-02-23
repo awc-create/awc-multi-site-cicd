@@ -15,8 +15,10 @@
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@testing-library/react": "^13.4.0",
-    "jest": "^29.0.0"
+  "jest": "^29.0.0",
+  "ts-jest": "^29.0.0",
+  "@testing-library/react": "^13.4.0",
+  "@types/jest": "^29.0.0"
   },
   "repository": {
     "type": "git",
