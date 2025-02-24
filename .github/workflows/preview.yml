@@ -25,9 +25,9 @@ jobs:
       - name: Checkout Triggering Repository explicitly
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          repository: ${{ github.event.client_payload.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ github.event.client_payload.branch }}
 
       - name: Install Vercel CLI explicitly
         run: npm install -g vercel

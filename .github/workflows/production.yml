@@ -22,9 +22,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          repository: ${{ github.event.client_payload.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: main
+          ref: ${{ github.event.client_payload.branch }}
 
       - name: Install Vercel CLI
         run: npm install -g vercel
