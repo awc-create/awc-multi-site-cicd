@@ -8,20 +8,20 @@ on:
 
 env:
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.event.workflow_run.outputs.repo_name)] }}
-  VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', github.event.workflow_run.outputs.repo_name)] }}
+  VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.event.workflow_run.repository.name)] }}
+  VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', github.event.workflow_run.repository.name)] }}
 
 jobs:
   deploy-preview:
     if: |
       github.event.workflow_run.conclusion == 'success' &&
       (startsWith(github.event.workflow_run.head_branch, 'feat/') ||
-      startsWith(github.event.workflow_run.head_branch, 'fix/'))
+       startsWith(github.event.workflow_run.head_branch, 'fix/'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.workflow_run.outputs.repo }}
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.event.workflow_run.head_branch }}
 
@@ -29,7 +29,11 @@ jobs:
         run: npm install -g vercel
 
       - name: Pull Vercel Preview Environment
-        run: vercel pull --yes --environment=preview --token=${{ env.VERCEL_TOKEN }} --scope=${{ env.VERCEL_ORG_ID }}
+        run: |
+          vercel pull --yes \
+            --environment=preview \
+            --token=${{ env.VERCEL_TOKEN }} \
+            --scope=${{ env.VERCEL_ORG_ID }}
 
       - name: Build Project Artifacts
         run: vercel build --token=${{ env.VERCEL_TOKEN }}
