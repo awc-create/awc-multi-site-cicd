@@ -5,11 +5,14 @@ on:
     workflows: ["Build and Test"]
     types:
       - completed
+    branches:
+      - 'feat/**'
+      - 'fix/**'
 
 env:
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.event.workflow_run.repository.name)] }}
-  VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', github.event.workflow_run.repository.name)] }}
+  VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.event.workflow_run.head_repository.name)] }}
+  VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', github.event.workflow_run.head_repository.name)] }}
 
 jobs:
   deploy-preview:
@@ -19,24 +22,25 @@ jobs:
        startsWith(github.event.workflow_run.head_branch, 'fix/'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Triggering Repository explicitly
+        uses: actions/checkout@v4
         with:
           repository: ${{ github.event.workflow_run.head_repository.full_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.event.workflow_run.head_branch }}
 
-      - name: Install Vercel CLI
+      - name: Install Vercel CLI explicitly
         run: npm install -g vercel
 
-      - name: Pull Vercel Preview Environment
+      - name: Pull Vercel Preview Environment explicitly
         run: |
           vercel pull --yes \
             --environment=preview \
             --token=${{ env.VERCEL_TOKEN }} \
             --scope=${{ env.VERCEL_ORG_ID }}
 
-      - name: Build Project Artifacts
+      - name: Build Project Artifacts explicitly
         run: vercel build --token=${{ env.VERCEL_TOKEN }}
 
-      - name: Deploy Preview Artifacts
+      - name: Deploy Preview Artifacts explicitly
         run: vercel deploy --prebuilt --token=${{ env.VERCEL_TOKEN }}
