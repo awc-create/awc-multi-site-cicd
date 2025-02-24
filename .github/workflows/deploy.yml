@@ -21,10 +21,26 @@ jobs:
       - name: Checkout Project Repo
         uses: actions/checkout@v4
         with:
-          repository: awc-create/${{ github.event.client_payload.repository }}
+          repository: awc-create/${{ github.event.repository.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: main
+
+      - name: Debug Repository and Test Files
+        run: |
+          echo "Current Repository: ${{ github.event.repository.name }}"
+          echo "Current Branch: $(git branch --show-current)"
+          pwd
+          ls -la
+          find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
+
+      - name: Verify package.json
+        run: |
+          if [ -f "package.json" ]; then
+            echo "✅ package.json found, proceeding with npm install"
+          else
+            echo "❌ Error: package.json not found!" && exit 1
+          fi
 
       - name: Read `.cicd-config.yml` (if exists)
         id: detect
@@ -54,13 +70,26 @@ jobs:
       - name: Verify package.json
         run: |
           if [ -f "package.json" ]; then
-            echo "✅ package.json found, proceeding."
+            echo "package.json found, proceeding with npm install"
           else
-            echo "❌ Error: package.json not found!" && exit 1
+            echo "Error: package.json not found!" && exit 1
           fi
 
       - name: Install Dependencies
         run: npm install
+
+      - name: Verify Working Directory and Test Files
+        run: |
+          pwd
+          ls -la
+          find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
+          
+      - name: Debug Repository Checkout
+        run: |
+          echo "Current Repository: ${{ github.event.repository.name }}"
+          echo "Current Branch: $(git branch --show-current)"
+          pwd
+          ls -la
 
       - name: Build the Project
         run: |
@@ -70,15 +99,8 @@ jobs:
           fi
           npm run build
 
-      - name: Verify Working Directory and Test Files
-        run: |
-          pwd
-          ls -la
-          find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
-
       - name: Run Unit Tests
         run: npm test || echo "No tests found, skipping..."
 
       - name: Deploy to Vercel
-        if: success()
         run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
