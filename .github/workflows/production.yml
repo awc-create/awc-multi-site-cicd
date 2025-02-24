@@ -1,27 +1,28 @@
 name: Vercel Production Deployment
 
-env:
-  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.event.client_payload.repository_name)] }}
-  VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', github.event.client_payload.repository_name)] }}
-
 on:
   workflow_run:
     workflows: ["Build and Test"]
     types:
       - completed
-    branches:
-      - main
+
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.event.workflow_run.outputs.repo_name)] }}
+  VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', github.event.workflow_run.outputs.repo_name)] }}
 
 jobs:
   deploy-production:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.client_payload.repository }}
+          repository: ${{ github.event.workflow_run.outputs.repo }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
 
       - name: Install Vercel CLI
         run: npm install -g vercel
