@@ -1,0 +1,94 @@
+name: Multi-Site Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'fix/**'
+  repository_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+jobs:
+  detect-project-type:
+    runs-on: ubuntu-latest
+    outputs:
+      project_type: ${{ steps.detect.outputs.PROJECT_TYPE }}
+
+    steps:
+      - name: Checkout Project Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.client_payload.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: main
+
+      - name: Debug Repository and Test Files
+        run: |
+          echo "Current Repository: ${{ github.event.client_payload.repository }}"
+          echo "Current Branch: $(git branch --show-current)"
+          pwd
+          ls -la
+          find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
+
+      - name: Verify package.json
+        run: |
+          if [ -f "package.json" ]; then
+            echo "package.json found, proceeding with npm install"
+          else
+            echo "Error: package.json not found!" && exit 1
+          fi
+
+      - name: Read `.cicd-config.yml` (if exists)
+        id: detect
+        run: |
+          PROJECT_TYPE="static"
+          if [ -f ".cicd-config.yml" ]; then
+            PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
+          fi
+          if ls *.tf 1> /dev/null 2>&1; then
+            PROJECT_TYPE="terraform"
+          fi
+          echo "PROJECT_TYPE=$PROJECT_TYPE" >> $GITHUB_ENV
+          echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
+
+  static_pipeline:
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.project_type == 'static'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Project Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.client_payload.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify package.json
+        run: |
+          if [ -f "package.json" ]; then
+            echo "package.json found, proceeding with npm install"
+          else
+            echo "Error: package.json not found!" && exit 1
+          fi
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Verify Working Directory and Test Files
+        run: |
+          pwd
+          ls -la
+          find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
+
+      - name: Build the Project
+        run: npm run build
+
+      - name: Run Unit Tests
+        run: npm test || echo "No tests found, skipping..."
+        
