@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       project_type: ${{ steps.detect.outputs.PROJECT_TYPE }}
-
     steps:
       - name: Checkout Project Repo
         uses: actions/checkout@v4
@@ -26,19 +25,9 @@ jobs:
           fetch-depth: 0
           ref: main
 
-      - name: Debug Repository and Test Files
-        run: |
-          echo "Current Repository: ${{ github.event.client_payload.repository }}"
-          echo "Current Branch: $(git branch --show-current)"
-          pwd
-          ls -la
-          find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
-
       - name: Verify package.json
         run: |
-          if [ -f "package.json" ]; then
-            echo "package.json found, proceeding with npm install"
-          else
+          if [ ! -f "package.json" ]; then
             echo "Error: package.json not found!" && exit 1
           fi
 
@@ -46,20 +35,14 @@ jobs:
         id: detect
         run: |
           PROJECT_TYPE="static"
-          if [ -f ".cicd-config.yml" ]; then
-            PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
-          fi
-          if ls *.tf 1> /dev/null 2>&1; then
-            PROJECT_TYPE="terraform"
-          fi
-          echo "PROJECT_TYPE=$PROJECT_TYPE" >> $GITHUB_ENV
+          [ -f ".cicd-config.yml" ] && PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
+          [ -f "*.tf" ] && PROJECT_TYPE="terraform"
           echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
 
   static_pipeline:
     needs: detect-project-type
     if: needs.detect-project-type.outputs.project_type == 'static'
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Project Repo
         uses: actions/checkout@v4
@@ -67,28 +50,24 @@ jobs:
           repository: ${{ github.event.client_payload.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify package.json
-        run: |
-          if [ -f "package.json" ]; then
-            echo "package.json found, proceeding with npm install"
-          else
-            echo "Error: package.json not found!" && exit 1
-          fi
-
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Verify Working Directory and Test Files
+      - name: Find Next.js Project Directory and Build
         run: |
           pwd
           ls -la
-          find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
-
-      - name: Build the Project
-        run: npm run build
+          NEXT_DIR=$(find . -name 'next.config.js' -exec dirname {} \; | head -n 1)
+          if [ -z "$NEXT_DIR" ]; then
+            echo "next.config.js not found in any subdirectory!" && exit 1
+          fi
+          cd "$NEXT_DIR"
+          echo "Found Next.js directory: $NEXT_DIR"
+          npm install
+          npm run build
 
       - name: Run Unit Tests
         run: npm test || echo "No tests found, skipping..."
 
       - name: Deploy to Vercel
-        run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          NEXT_DIR=$(find . -name 'next.config.js' -exec dirname {} \; | head -n 1)
+          cd "$NEXT_DIR"
+          vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
