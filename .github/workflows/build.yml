@@ -6,6 +6,8 @@ on:
       - main
       - 'feat/**'
       - 'fix/**'
+    paths-ignore:
+      - 'aws-multi/**'
   repository_dispatch:
 
 permissions:
