@@ -1,11 +1,6 @@
-name: Build and Deploy Workflow
+name: Build and Test
 
 on:
-  push:
-    branches:
-      - main
-      - 'feat/**'
-      - 'fix/**'
   repository_dispatch:
 
 permissions:
@@ -41,11 +36,11 @@ jobs:
       - name: Verify package.json and Print Full Path
         run: |
           ls -la
-          if [ ! -f "package.json" ]; then
-            echo "❌ package.json NOT found at: $(pwd)/package.json"
+          if [ ! -f "$(pwd)/package.json" ]; then
+            echo "package.json NOT found at: $(pwd)/package.json"
             exit 1
           else
-            echo "✅ package.json found at: $(pwd)/package.json"
+            echo "package.json found at: $(pwd)/package.json"
           fi
         working-directory: site-repo
 
@@ -85,7 +80,7 @@ jobs:
         run: |
           ls -la
           if [ ! -f "package.json" ]; then
-            echo "❌ package.json not found"
+            echo "package.json not found"
             exit 1
           fi
         working-directory: site-repo
@@ -111,5 +106,5 @@ jobs:
       - name: Run Unit Tests
         run: |
           ls -la
-          npm test || echo "⚠️ No tests found, skipping..."
+          npm test || echo "No tests found, skipping..."
         working-directory: site-repo
