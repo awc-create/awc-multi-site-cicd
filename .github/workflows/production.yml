@@ -26,32 +26,50 @@ jobs:
           ref: main
           path: site-repo
 
-      - name: Debug - Verify Branch Name
+      - name: Debug - Verify Repository Structure
         run: |
-          echo "Current branch: ${{ github.event.workflow_run.head_branch }}"
-          ls -la
+          echo "Step: Checking repository structure"
+          echo "Current Directory: $(pwd)"
+          echo "Listing contents of site-repo:"
+          ls -la site-repo
+          echo "Checking inside src/app/:"
+          ls -la site-repo/src/app || echo "⚠️ No app/ directory found in src/"
+          ls -la site-repo/src/app/page.tsx || echo "⚠️ page.tsx not found!"
+        working-directory: site-repo
+
+      - name: Install Dependencies
+        run: |
+          echo "Step: Installing Dependencies"
+          echo "Checking package.json:"
+          ls -la site-repo/package.json || echo "⚠️ package.json NOT found!"
+          npm install
+        working-directory: site-repo
+
+      - name: Build Next.js First
+        run: |
+          echo "Step: Building Next.js"
+          echo "Checking src/app/ structure before build:"
+          ls -la site-repo/src/app || echo "⚠️ No app/ directory found!"
+          npm run build
         working-directory: site-repo
 
       - name: Install Vercel CLI
-        run: npm install -g vercel
+        run: |
+          echo "Step: Installing Vercel CLI"
+          npm install -g vercel
         working-directory: site-repo
 
       - name: Pull Vercel Production Environment
         run: |
+          echo "Step: Pulling Vercel Production Environment"
           vercel pull --yes \
             --environment=production \
             --token=${{ env.VERCEL_TOKEN }} \
             --scope=${{ env.VERCEL_ORG_ID }}
         working-directory: site-repo
 
-      - name: Build Project Artifacts
+      - name: Deploy Production to Vercel (Only If Build Succeeded)
         run: |
-          ls -la
-          vercel build --prod --token=${{ env.VERCEL_TOKEN }}
-        working-directory: site-repo
-
-      - name: Deploy Production Artifacts
-        run: |
-          ls -la
+          echo "Step: Deploying Production to Vercel"
           vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
         working-directory: site-repo
