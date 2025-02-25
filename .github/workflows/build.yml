@@ -16,7 +16,7 @@ jobs:
       repository: ${{ github.event.client_payload.repository }}
       repository_name: ${{ github.event.client_payload.repository_name }}
       branch: ${{ github.event.client_payload.branch }}
-      path: site-repo
+      path: ../
 
     steps:
       - name: Checkout Project Repo
@@ -26,11 +26,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ github.event.client_payload.branch }}
-          path: site-repo
+          path: ../
+      
+      - name: Verify Current Working Directory
+        run: pwd
 
       - name: Debug Repository and Test Files
         run: |
-          cd site-repo
           echo "Current Repository: ${{ github.event.client_payload.repository }}"
           echo "Current Branch: $(git branch --show-current)"
           pwd
