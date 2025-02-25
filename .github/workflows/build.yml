@@ -27,29 +27,28 @@ jobs:
           ref: ${{ github.event.client_payload.branch }}
           path: site-repo
 
-      - name: Print Debug Info
+      - name: Debug - Verify Repository and Files
         run: |
-          echo "✅ Workflow is running in GitHub Actions"
+          echo "Cloned repository successfully into site-repo"
           echo "Current Directory:"
           pwd
-          echo "Checking if repository is correctly cloned..."
-          ls -la site-repo  # ✅ List all files inside the checked-out repo
-          echo "Checking Branch..."
-          cd site-repo && git branch --show-current
+          ls -la site-repo  # List all files to ensure package.json exists
 
       - name: Verify package.json
         working-directory: /home/runner/work/portfolio/portfolio
         run: |
+          cd site-repo
           if [ ! -f "package.json" ]; then
             echo "❌ package.json not found!" && exit 1
           else
-            echo "✅ package.json found."
+            echo "package.json found."
           fi
 
       - name: Read `.cicd-config.yml` (if exists)
         id: detect
         working-directory: /home/runner/work/portfolio/portfolio
         run: |
+          cd site-repo
           PROJECT_TYPE="static"
           if [ -f ".cicd-config.yml" ]; then
             PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
