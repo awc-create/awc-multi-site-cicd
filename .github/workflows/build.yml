@@ -13,6 +13,11 @@ permissions:
   actions: write
   issues: write
 
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.repository)] }}
+  VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', github.repository)] }}
+
 jobs:
   detect-project-type:
     uses: ./.github/workflows/detect-project.yml
