@@ -12,12 +12,19 @@ jobs:
   detect-project-type:
     runs-on: ubuntu-latest
     outputs:
-      project_type: ${{ steps.detect.outputs.PROJECT_TYPE }}
       repository: ${{ github.event.client_payload.repository }}
       repository_name: ${{ github.event.client_payload.repository_name }}
       branch: ${{ github.event.client_payload.branch }}
+      project_type: ${{ steps.detect.outputs.PROJECT_TYPE }}
 
     steps:
+      - name: Set Repository Working Directory
+        run: |
+          echo "Setting correct working directory..."
+          export REPO_DIR="/home/runner/work/${{ github.event.client_payload.repository_name }}/${{ github.event.client_payload.repository_name }}"
+          echo "REPO_DIR=$REPO_DIR" >> $GITHUB_ENV
+          echo "Repository will be cloned into: $REPO_DIR"
+
       - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
@@ -25,30 +32,28 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ github.event.client_payload.branch }}
-          path: site-repo
+          path: ${{ github.event.client_payload.repository_name }}
 
       - name: Debug - Verify Repository and Files
         run: |
-          echo "Cloned repository successfully into site-repo"
+          echo "✅ Cloned repository successfully into $REPO_DIR"
           echo "Current Directory:"
           pwd
-          ls -la site-repo  # List all files to ensure package.json exists
+          ls -la $REPO_DIR  # ✅ List all files to ensure package.json exists
+        working-directory: ${{ env.REPO_DIR }}
 
       - name: Verify package.json
-        working-directory: /home/runner/work/portfolio/portfolio
         run: |
-          cd site-repo
           if [ ! -f "package.json" ]; then
             echo "❌ package.json not found!" && exit 1
           else
-            echo "package.json found."
+            echo "✅ package.json found."
           fi
+        working-directory: ${{ env.REPO_DIR }}
 
       - name: Read `.cicd-config.yml` (if exists)
         id: detect
-        working-directory: /home/runner/work/portfolio/portfolio
         run: |
-          cd site-repo
           PROJECT_TYPE="static"
           if [ -f ".cicd-config.yml" ]; then
             PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
@@ -57,6 +62,7 @@ jobs:
             PROJECT_TYPE="terraform"
           fi
           echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
+        working-directory: ${{ env.REPO_DIR }}
 
   static_pipeline:
     needs: detect-project-type
@@ -68,37 +74,45 @@ jobs:
       branch: ${{ needs.detect-project-type.outputs.branch }}
 
     steps:
-      - name: Checkout Project Repo
+      - name: Set Repository Working Directory
+        run: |
+          echo "Setting correct working directory..."
+          export REPO_DIR="/home/runner/work/${{ needs.detect-project-type.outputs.repository_name }}/${{ needs.detect-project-type.outputs.repository_name }}"
+          echo "REPO_DIR=$REPO_DIR" >> $GITHUB_ENV
+          echo "Repository will be cloned into: $REPO_DIR"
+
+      - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
           repository: ${{ needs.detect-project-type.outputs.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ needs.detect-project-type.outputs.branch }}
+          path: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Verify package.json
-        working-directory: /home/runner/work/portfolio/portfolio
         run: |
           if [ ! -f "package.json" ]; then
             echo "❌ package.json not found!" && exit 1
           else
             echo "✅ package.json found."
           fi
+        working-directory: ${{ env.REPO_DIR }}
 
       - name: Install Dependencies
-        working-directory: /home/runner/work/portfolio/portfolio
         run: npm install
+        working-directory: ${{ env.REPO_DIR }}
 
       - name: Verify Working Directory and Test Files
-        working-directory: /home/runner/work/portfolio/portfolio
         run: |
           pwd
           ls -la
           find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
+        working-directory: ${{ env.REPO_DIR }}
 
       - name: Build the Project
-        working-directory: /home/runner/work/portfolio/portfolio
         run: npm run build
+        working-directory: ${{ env.REPO_DIR }}
 
       - name: Run Unit Tests
-        working-directory: /home/runner/work/portfolio/portfolio
         run: npm test || echo "⚠️ No tests found, skipping..."
+        working-directory: ${{ env.REPO_DIR }}
