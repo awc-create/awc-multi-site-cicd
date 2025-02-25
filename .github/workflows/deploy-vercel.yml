@@ -23,30 +23,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Target Repository
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ inputs.repository }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: main
-          path: site-repo
+        - name: Checkout Target Repository
+          uses: actions/checkout@v4
+          with:
+            repository: ${{ needs.static_pipeline.outputs.repository }}
+            token: ${{ secrets.GITHUB_TOKEN }}
+            ref: main
+            path: site-repo
 
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-        working-directory: site-repo
+        - name: Install Vercel CLI
+          run: npm install -g vercel
+          working-directory: site-repo
 
-      - name: Pull Vercel Production Environment
-        run: |
-          vercel pull --yes \
-            --environment=production \
-            --token=${{ env.VERCEL_TOKEN }} \
-            --scope=${{ env.VERCEL_ORG_ID }}
-        working-directory: site-repo
+        - name: Pull Vercel Production Environment
+          run: |
+            vercel pull --yes \
+              --environment=production \
+              --token=${{ env.VERCEL_TOKEN }} \
+              --scope=${{ env.VERCEL_ORG_ID }}
+          working-directory: site-repo
 
-      - name: Build Project Artifacts
-        run: vercel build --token=${{ env.VERCEL_TOKEN }}
-        working-directory: site-repo
+        - name: Build Project Artifacts
+          run: vercel build --token=${{ env.VERCEL_TOKEN }}
+          working-directory: site-repo
 
-      - name: Deploy Production Artifacts
-        run: vercel deploy --prebuilt --token=${{ env.VERCEL_TOKEN }}
-        working-directory: site-repo
+        - name: Deploy Production Artifacts
+          run: vercel deploy --prebuilt --token=${{ env.VERCEL_TOKEN }}
+          working-directory: site-repo
+
