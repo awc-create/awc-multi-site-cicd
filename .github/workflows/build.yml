@@ -1,12 +1,22 @@
-name: Build and Test
+name: Build, Test, and Deploy to Vercel
 
 on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'fix/**'
   repository_dispatch:
 
 permissions:
   contents: read
   actions: write
   issues: write
+
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.repository)] }}
+  VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', github.repository)] }}
 
 jobs:
   detect-project-type:
@@ -107,4 +117,41 @@ jobs:
         run: |
           ls -la
           npm test || echo "No tests found, skipping..."
+        working-directory: site-repo
+
+  deploy-to-vercel:
+    needs: static_pipeline
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.static_pipeline.outputs.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+          path: site-repo
+
+      - name: Install Vercel CLI
+        run: |
+          echo "Installing Vercel CLI"
+          npm install -g vercel
+        working-directory: site-repo
+
+      - name: Pull Vercel Production Environment
+        run: |
+          echo "Pulling Vercel Production Environment"
+          vercel pull --yes \
+            --environment=production \
+            --token=${{ env.VERCEL_TOKEN }} \
+            --scope=${{ env.VERCEL_ORG_ID }}
+        working-directory: site-repo
+
+      - name: Deploy to Vercel Production
+        run: |
+          echo "Deploying to Vercel Production"
+          vercel deploy --prebuilt --prod \
+            --token=${{ env.VERCEL_TOKEN }} \
+            --scope=${{ env.VERCEL_ORG_ID }}
         working-directory: site-repo
