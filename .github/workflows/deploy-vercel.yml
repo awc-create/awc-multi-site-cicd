@@ -13,6 +13,16 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.repository)] }}
+  VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', github.repository)] }}
+
 jobs:
   deploy-to-vercel:
     runs-on: ubuntu-latest
@@ -35,10 +45,6 @@ jobs:
 
       - name: Install Vercel CLI
         run: npm install -g vercel
-        working-directory: site-repo
-
-      - name: Authenticate Vercel
-        run: vercel login --token=${{ env.VERCEL_TOKEN }}
         working-directory: site-repo
 
       - name: Pull Vercel Production Environment
