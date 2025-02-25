@@ -35,12 +35,13 @@ jobs:
           ls -la
         working-directory: site-repo
 
-      - name: Verify package.json
+      - name: Verify package.json and Print Full Path
         run: |
-          if [ ! -f "package.json" ]; then
-            echo "❌ package.json not found!" && exit 1
+          if [ ! -f "$(pwd)/package.json" ]; then
+            echo "❌ package.json NOT found at: $(pwd)/package.json"
+            exit 1
           else
-            echo "✅ package.json found."
+            echo "✅ package.json found at: $(pwd)/package.json"
           fi
         working-directory: site-repo
 
