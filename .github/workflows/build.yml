@@ -7,7 +7,7 @@ on:
       - 'feat/**'
       - 'fix/**'
     paths-ignore:
-      - 'aws-multi/**'
+      - 'aws-multi-site-cicd/**'
   repository_dispatch:
 
 permissions:
