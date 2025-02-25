@@ -123,7 +123,7 @@ jobs:
 
   preview-to-vercel:
     needs: static_pipeline
-    if: github.ref == 'refs/heads/main'
+    if: startsWith(needs.static_pipeline.outputs.branch, 'feat/') || startsWith(needs.static_pipeline.outputs.branch, 'fix/')
     runs-on: ubuntu-latest
 
     steps:
@@ -132,17 +132,17 @@ jobs:
         with:
           repository: ${{ needs.static_pipeline.outputs.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: main
+          ref: ${{ needs.static_pipeline.outputs.branch }}
           path: site-repo
 
       - name: Install Vercel CLI
         run: npm install -g vercel
         working-directory: site-repo
 
-      - name: Pull Vercel Production Environment
+      - name: Pull Vercel Preview Environment
         run: |
           vercel pull --yes \
-            --environment=production \
+            --environment=preview \
             --token=${{ env.VERCEL_TOKEN }} \
             --scope=${{ env.VERCEL_ORG_ID }}
         working-directory: site-repo
@@ -151,13 +151,13 @@ jobs:
         run: vercel build --token=${{ env.VERCEL_TOKEN }}
         working-directory: site-repo
 
-      - name: Deploy Production Artifacts
+      - name: Deploy Preview Artifacts
         run: vercel deploy --prebuilt --token=${{ env.VERCEL_TOKEN }}
         working-directory: site-repo
 
   deploy-to-vercel:
     needs: static_pipeline
-    if: github.ref == 'refs/heads/main'
+    if: needs.static_pipeline.outputs.branch == 'main'
     runs-on: ubuntu-latest
 
     steps:
@@ -188,4 +188,3 @@ jobs:
       - name: Deploy Production Artifacts
         run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
         working-directory: site-repo
-
