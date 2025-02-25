@@ -1,0 +1,47 @@
+name: Deploy to Vercel
+
+on:
+  workflow_call:
+    inputs:
+      repository:
+        required: true
+        type: string
+      repository_name:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+
+jobs:
+  deploy-to-vercel:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+          path: site-repo
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+        working-directory: site-repo
+
+      - name: Pull Vercel Production Environment
+        run: |
+          vercel pull --yes \
+            --environment=production \
+            --token=${{ secrets.VERCEL_TOKEN }} \
+            --scope=${{ secrets[format('{0}_VERCEL_ORG_ID', inputs.repository_name)] }}
+        working-directory: site-repo
+
+      - name: Build Project Artifacts
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: site-repo
+
+      - name: Deploy Production Artifacts
+        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: site-repo

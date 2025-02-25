@@ -1,30 +1,62 @@
-name: Static Pipeline - Build & Test
+name: Static Pipeline
 
 on:
   workflow_call:
     inputs:
-      repo_path:
+      repository:
         required: true
         type: string
+      repository_name:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+    outputs:
+      repository:
+        description: "Repository name"
+        value: ${{ jobs.static_pipeline.outputs.repository }}
+      repository_name:
+        description: "Repository full name"
+        value: ${{ jobs.static_pipeline.outputs.repository_name }}
+      branch:
+        description: "Branch name"
+        value: ${{ jobs.static_pipeline.outputs.branch }}
 
 jobs:
-  static-pipeline:
+  static_pipeline:
     runs-on: ubuntu-latest
+    outputs:
+      repository: ${{ inputs.repository }}
+      repository_name: ${{ inputs.repository_name }}
+      branch: ${{ inputs.branch }}
 
     steps:
-      - name: Use Existing Checkout Directory
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ inputs.branch }}
+          path: site-repo
+
+      - name: Verify package.json
         run: |
-          echo "Using checked out repository at ${{ inputs.repo_path }}"
-          ls -la ${{ inputs.repo_path }}
+          ls -la
+          if [ ! -f "package.json" ]; then
+            echo "package.json not found"
+            exit 1
+          fi
+        working-directory: site-repo
 
       - name: Install Dependencies
         run: npm install
-        working-directory: ${{ inputs.repo_path }}
+        working-directory: site-repo
+
+      - name: Build the Project
+        run: npm run build
+        working-directory: site-repo
 
       - name: Run Unit Tests
         run: npm test || echo "No tests found, skipping..."
-        working-directory: ${{ inputs.repo_path }}
-
-      - name: Build Project
-        run: npm run build
-        working-directory: ${{ inputs.repo_path }}
+        working-directory: site-repo
