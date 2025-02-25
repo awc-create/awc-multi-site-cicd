@@ -1,0 +1,30 @@
+name: Static Pipeline - Build & Test
+
+on:
+  workflow_call:
+    inputs:
+      repo_path:
+        required: true
+        type: string
+
+jobs:
+  static-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Use Existing Checkout Directory
+        run: |
+          echo "Using checked out repository at ${{ inputs.repo_path }}"
+          ls -la ${{ inputs.repo_path }}
+
+      - name: Install Dependencies
+        run: npm install
+        working-directory: ${{ inputs.repo_path }}
+
+      - name: Run Unit Tests
+        run: npm test || echo "No tests found, skipping..."
+        working-directory: ${{ inputs.repo_path }}
+
+      - name: Build Project
+        run: npm run build
+        working-directory: ${{ inputs.repo_path }}

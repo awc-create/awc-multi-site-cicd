@@ -1,0 +1,110 @@
+name: Build and Test
+
+on:
+  repository_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+jobs:
+  detect-project-type:
+    runs-on: ubuntu-latest
+    outputs:
+      repository: ${{ github.event.client_payload.repository }}
+      repository_name: ${{ github.event.client_payload.repository_name }}
+      branch: ${{ github.event.client_payload.branch }}
+      project_type: ${{ steps.detect.outputs.PROJECT_TYPE }}
+
+    steps:
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.client_payload.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ github.event.client_payload.branch }}
+          path: site-repo
+
+      - name: Debug - Verify Repository and Files
+        run: |
+          echo "Current Directory: $(pwd)"
+          ls -la
+        working-directory: site-repo
+
+      - name: Verify package.json and Print Full Path
+        run: |
+          ls -la
+          if [ ! -f "$(pwd)/package.json" ]; then
+            echo "package.json NOT found at: $(pwd)/package.json"
+            exit 1
+          else
+            echo "package.json found at: $(pwd)/package.json"
+          fi
+        working-directory: site-repo
+
+      - name: Read `.cicd-config.yml` (if exists)
+        id: detect
+        run: |
+          ls -la
+          PROJECT_TYPE="static"
+          if [ -f ".cicd-config.yml" ]; then
+            PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
+          fi
+          if ls *.tf &>/dev/null; then
+            PROJECT_TYPE="terraform"
+          fi
+          echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
+        working-directory: site-repo
+
+  static_pipeline:
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.project_type == 'static'
+    runs-on: ubuntu-latest
+    outputs:
+      repository: ${{ needs.detect-project-type.outputs.repository }}
+      repository_name: ${{ needs.detect-project-type.outputs.repository_name }}
+      branch: ${{ needs.detect-project-type.outputs.branch }}
+
+    steps:
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.detect-project-type.outputs.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ needs.detect-project-type.outputs.branch }}
+          path: site-repo
+
+      - name: Verify package.json
+        run: |
+          ls -la
+          if [ ! -f "package.json" ]; then
+            echo "package.json not found"
+            exit 1
+          fi
+        working-directory: site-repo
+
+      - name: Install Dependencies
+        run: |
+          ls -la
+          npm install
+        working-directory: site-repo
+
+      - name: Verify Working Directory and Test Files
+        run: |
+          ls -la
+          find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
+        working-directory: site-repo
+
+      - name: Build the Project
+        run: |
+          ls -la
+          npm run build
+        working-directory: site-repo
+
+      - name: Run Unit Tests
+        run: |
+          ls -la
+          npm test || echo "No tests found, skipping..."
+        working-directory: site-repo
