@@ -21,16 +21,24 @@ jobs:
       - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.client_payload.repository }}
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-          ref: ${{ github.event.client_payload.branch }}
+          ref: main
           path: site-repo
+
+      - name: Debug - Confirm Checkout Worked
+        run: |
+          echo "Step: Confirming repository checkout"
+          echo "Current Directory: $(pwd)"
+          echo "Checking if site-repo exists:"
+          ls -la || echo "⚠️ No site-repo directory found!"
+          echo "Checking site-repo contents:"
+          ls -la site-repo || echo "⚠️ site-repo is empty!"
 
       - name: Debug - Verify Repository Structure
         run: |
           echo "Step: Checking repository structure"
-          echo "Current Directory: $(pwd)"
           echo "Listing contents of site-repo:"
           ls -la site-repo
           echo "Checking inside src/app/:"
@@ -41,16 +49,20 @@ jobs:
       - name: Install Dependencies
         run: |
           echo "Step: Installing Dependencies"
-          echo "Checking package.json:"
-          ls -la site-repo/package.json || echo "⚠️ package.json NOT found!"
+          if [ ! -d "site-repo" ]; then
+            echo "⚠️ Error: site-repo directory not found! Exiting..."
+            exit 1
+          fi
           npm install
         working-directory: site-repo
 
       - name: Build Next.js First
         run: |
           echo "Step: Building Next.js"
-          echo "Checking src/app/ structure before build:"
-          ls -la site-repo/src/app || echo "⚠️ No app/ directory found!"
+          if [ ! -d "site-repo" ]; then
+            echo "⚠️ Error: site-repo directory not found! Exiting..."
+            exit 1
+          fi
           npm run build
         working-directory: site-repo
 
