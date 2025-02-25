@@ -18,22 +18,24 @@ jobs:
       branch: ${{ github.event.client_payload.branch }}
 
     steps:
-      - name: Checkout Project Repo
+      - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.client_payload.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ github.event.client_payload.branch }}
+          path: site-repo
 
-      - name: Debug Repository and Test Files
-        working-directory: /home/runner/work/portfolio/portfolio
+      - name: Print Debug Info
         run: |
-          echo "Current Repository: ${{ github.event.client_payload.repository }}"
-          echo "Current Branch: $(git branch --show-current)"
+          echo "✅ Workflow is running in GitHub Actions"
+          echo "Current Directory:"
           pwd
-          ls -la
-          find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
+          echo "Checking if repository is correctly cloned..."
+          ls -la site-repo  # ✅ List all files inside the checked-out repo
+          echo "Checking Branch..."
+          cd site-repo && git branch --show-current
 
       - name: Verify package.json
         working-directory: /home/runner/work/portfolio/portfolio
