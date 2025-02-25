@@ -39,37 +39,6 @@ jobs:
           ref: ${{ github.event.client_payload.branch }}
           path: site-repo
 
-      - name: Debug - Verify Repository and Files
-        run: |
-          echo "Current Directory: $(pwd)"
-          ls -la
-        working-directory: site-repo
-
-      - name: Verify package.json and Print Full Path
-        run: |
-          ls -la
-          if [ ! -f "$(pwd)/package.json" ]; then
-            echo "package.json NOT found at: $(pwd)/package.json"
-            exit 1
-          else
-            echo "package.json found at: $(pwd)/package.json"
-          fi
-        working-directory: site-repo
-
-      - name: Read `.cicd-config.yml` (if exists)
-        id: detect
-        run: |
-          ls -la
-          PROJECT_TYPE="static"
-          if [ -f ".cicd-config.yml" ]; then
-            PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
-          fi
-          if ls *.tf &>/dev/null; then
-            PROJECT_TYPE="terraform"
-          fi
-          echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
-        working-directory: site-repo
-
   static_pipeline:
     needs: detect-project-type
     if: needs.detect-project-type.outputs.project_type == 'static'
@@ -88,37 +57,16 @@ jobs:
           ref: ${{ needs.detect-project-type.outputs.branch }}
           path: site-repo
 
-      - name: Verify package.json
-        run: |
-          ls -la
-          if [ ! -f "package.json" ]; then
-            echo "package.json not found"
-            exit 1
-          fi
-        working-directory: site-repo
-
       - name: Install Dependencies
-        run: |
-          ls -la
-          npm install
-        working-directory: site-repo
-
-      - name: Verify Working Directory and Test Files
-        run: |
-          ls -la
-          find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
+        run: npm install
         working-directory: site-repo
 
       - name: Build the Project
-        run: |
-          ls -la
-          npm run build
+        run: npm run build
         working-directory: site-repo
 
       - name: Run Unit Tests
-        run: |
-          ls -la
-          npm test || echo "No tests found, skipping..."
+        run: npm test || echo "No tests found, skipping..."
         working-directory: site-repo
 
   preview-to-vercel:
@@ -147,8 +95,8 @@ jobs:
             --scope=${{ env.VERCEL_ORG_ID }}
         working-directory: site-repo
 
-      - name: Build Project Artifacts
-        run: vercel build --token=${{ env.VERCEL_TOKEN }}
+      - name: Build Project for Preview
+        run: vercel build --prod=false --token=${{ env.VERCEL_TOKEN }}
         working-directory: site-repo
 
       - name: Deploy Preview Artifacts
@@ -181,8 +129,8 @@ jobs:
             --scope=${{ env.VERCEL_ORG_ID }}
         working-directory: site-repo
 
-      - name: Build Project Artifacts
-        run: vercel build --token=${{ env.VERCEL_TOKEN }}
+      - name: Build Project for Production
+        run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
         working-directory: site-repo
 
       - name: Deploy Production Artifacts
