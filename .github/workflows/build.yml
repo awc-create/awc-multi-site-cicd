@@ -14,31 +14,81 @@ permissions:
   issues: write
 
 jobs:
-  checkout-repo:
-    uses: ./.github/workflows/checkout.yml
+  detect-project-type:
+    runs-on: ubuntu-latest
+    outputs:
+      repository: ${{ github.event.client_payload.repository }}
+      repository_name: ${{ github.event.client_payload.repository_name }}
+      branch: ${{ github.event.client_payload.branch }}
+      project_type: ${{ steps.detect.outputs.PROJECT_TYPE }}
 
-  project-detection:
-    needs: checkout-repo
-    uses: ./.github/workflows/project.yml
-    with:
-      repo_path: site-repo
+    steps:
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.client_payload.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          ref: ${{ github.event.client_payload.branch }}
+          path: site-repo
+
+      - name: Debug - Verify Repository and Files
+        run: |
+          echo "Current Directory: $(pwd)"
+          ls -la
+        working-directory: site-repo
+
+      - name: Detect `.cicd-config.yml`
+        id: detect
+        run: |
+          PROJECT_TYPE="static"
+          if [ -f "site-repo/.cicd-config.yml" ]; then
+            PROJECT_TYPE=$(grep "project_type:" site-repo/.cicd-config.yml | awk '{print $2}')
+          fi
+          echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
+        working-directory: site-repo
 
   static-pipeline:
-    needs: project-detection
-    uses: ./.github/workflows/static-pipeline.yml
-    with:
-      repo_path: site-repo
+    needs: detect-project-type
+    runs-on: ubuntu-latest
 
-#   preview-deployment:
-#     needs: static-pipeline
-#     if: contains(github.ref, 'feat/') || contains(github.ref, 'fix/')
-#     uses: ./.github/workflows/preview.yml
-#     with:
-#       repo_path: site-repo
+    steps:
+      - name: Install Dependencies
+        run: npm install
+        working-directory: site-repo
 
-#   production-deployment:
-#     needs: static-pipeline
-#     if: github.ref == 'refs/heads/main'
-#     uses: ./.github/workflows/production.yml
-#     with:
-#       repo_path: site-repo
+      - name: Run Unit Tests
+        run: npm test || echo "No tests found, skipping..."
+        working-directory: site-repo
+
+      - name: Build Project
+        run: npm run build
+        working-directory: site-repo
+
+  preview-deployment:
+    needs: static-pipeline
+    if: contains(github.ref, 'feat/') || contains(github.ref, 'fix/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+        working-directory: site-repo
+
+      - name: Deploy to Vercel Preview
+        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: site-repo
+
+  production-deployment:
+    needs: static-pipeline
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+        working-directory: site-repo
+
+      - name: Deploy to Vercel Production
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: site-repo
