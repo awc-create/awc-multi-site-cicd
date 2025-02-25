@@ -5,9 +5,6 @@ on:
     workflows: ["Build and Test"]
     types:
       - completed
-    branches:
-      - 'feat/**'
-      - 'fix/**'
 
 env:
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -22,25 +19,36 @@ jobs:
        startsWith(github.event.workflow_run.head_branch, 'fix/'))
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Triggering Repository explicitly
+      - name: Checkout Triggering Repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.client_payload.repository }}
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.event.client_payload.branch }}
+          ref: ${{ github.event.workflow_run.head_branch }}
+          path: site-repo
 
-      - name: Install Vercel CLI explicitly
+      - name: Debug - Verify Branch Name
+        run: |
+          echo "Current branch: ${{ github.event.workflow_run.head_branch }}"
+          ls -la
+        working-directory: site-repo
+
+      - name: Install Vercel CLI
         run: npm install -g vercel
+        working-directory: site-repo
 
-      - name: Pull Vercel Preview Environment explicitly
+      - name: Pull Vercel Preview Environment
         run: |
           vercel pull --yes \
             --environment=preview \
             --token=${{ env.VERCEL_TOKEN }} \
             --scope=${{ env.VERCEL_ORG_ID }}
+        working-directory: site-repo
 
-      - name: Build Project Artifacts explicitly
+      - name: Build Project Artifacts
         run: vercel build --token=${{ env.VERCEL_TOKEN }}
+        working-directory: site-repo
 
-      - name: Deploy Preview Artifacts explicitly
+      - name: Deploy Preview Artifacts
         run: vercel deploy --prebuilt --token=${{ env.VERCEL_TOKEN }}
+        working-directory: site-repo

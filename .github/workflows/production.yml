@@ -5,8 +5,6 @@ on:
     workflows: ["Build and Test"]
     types:
       - completed
-    branches:
-      - main
 
 env:
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -20,14 +18,23 @@ jobs:
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.client_payload.repository }}
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.event.client_payload.branch }}
+          ref: main
+          path: site-repo
+
+      - name: Debug - Verify Branch Name
+        run: |
+          echo "Current branch: ${{ github.event.workflow_run.head_branch }}"
+          ls -la
+        working-directory: site-repo
 
       - name: Install Vercel CLI
         run: npm install -g vercel
+        working-directory: site-repo
 
       - name: Pull Vercel Production Environment
         run: |
@@ -35,9 +42,16 @@ jobs:
             --environment=production \
             --token=${{ env.VERCEL_TOKEN }} \
             --scope=${{ env.VERCEL_ORG_ID }}
+        working-directory: site-repo
 
       - name: Build Project Artifacts
-        run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
+        run: |
+          ls -la
+          vercel build --prod --token=${{ env.VERCEL_TOKEN }}
+        working-directory: site-repo
 
       - name: Deploy Production Artifacts
-        run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
+        run: |
+          ls -la
+          vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
+        working-directory: site-repo
