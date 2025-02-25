@@ -25,11 +25,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ github.event.client_payload.branch }}
-          path: site-repo  # ✅ Clones into site-repo
+          path: site-repo
 
       - name: Debug - Verify Repository and Files
         run: |
-          echo "✅ Cloned repository successfully into site-repo"
+          echo "Cloned repository successfully into site-repo"
           echo "Current Directory:"
           pwd
           ls -la
@@ -38,10 +38,10 @@ jobs:
       - name: Verify package.json and Print Full Path
         run: |
           if [ ! -f "$(pwd)/package.json" ]; then
-            echo "❌ package.json NOT found at: $(pwd)/package.json"
+            echo "package.json NOT found at: $(pwd)/package.json"
             exit 1
           else
-            echo "✅ package.json found at: $(pwd)/package.json"
+            echo "package.json found at: $(pwd)/package.json"
           fi
         working-directory: site-repo
 
@@ -49,13 +49,14 @@ jobs:
         id: detect
         run: |
           PROJECT_TYPE="static"
-          if [ -f "$REPO_DIR/.cicd-config.yml" ]; then
-            PROJECT_TYPE=$(grep "project_type:" $REPO_DIR/.cicd-config.yml | awk '{print $2}')
+          if [ -f ".cicd-config.yml" ]; then
+            PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
           fi
-          if ls $REPO_DIR/*.tf &>/dev/null; then
+          if ls *.tf &>/dev/null; then
             PROJECT_TYPE="terraform"
           fi
           echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
+        working-directory: site-repo
 
   static_pipeline:
     needs: detect-project-type
@@ -67,46 +68,37 @@ jobs:
       branch: ${{ needs.detect-project-type.outputs.branch }}
 
     steps:
-      - name: Define Repository Path
-        run: |
-          export REPO_DIR="/home/runner/work/${{ needs.detect-project-type.outputs.repository_name }}/${{ needs.detect-project-type.outputs.repository_name }}"
-          echo "REPO_DIR=$REPO_DIR" >> $GITHUB_ENV
-          echo "📁 Repository will be cloned into: $REPO_DIR"
-
-      - name: Checkout Target Repository into Correct Path
+      - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
           repository: ${{ needs.detect-project-type.outputs.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ needs.detect-project-type.outputs.branch }}
-          path: ${{ needs.detect-project-type.outputs.repository_name }}  # ✅ Forces correct directory
+          path: site-repo
 
       - name: Verify package.json
         run: |
-          if [ ! -f "$REPO_DIR/package.json" ]; then
-            echo "❌ package.json not found!" && exit 1
-          else
-            echo "✅ package.json found."
+          if [ ! -f "package.json" ]; then
+            echo "package.json not found"
+            exit 1
           fi
+        working-directory: site-repo
 
       - name: Install Dependencies
-        run: |
-          cd $REPO_DIR  # ✅ Enter correct directory
-          npm install
+        run: npm install
+        working-directory: site-repo
 
       - name: Verify Working Directory and Test Files
         run: |
-          cd $REPO_DIR  # ✅ Enter correct directory
           pwd
           ls -la
           find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
+        working-directory: site-repo
 
       - name: Build the Project
-        run: |
-          cd $REPO_DIR  # ✅ Enter correct directory
-          npm run build
+        run: npm run build
+        working-directory: site-repo
 
       - name: Run Unit Tests
-        run: |
-          cd $REPO_DIR  # ✅ Enter correct directory
-          npm test || echo "⚠️ No tests found, skipping..."
+        run: npm test || echo "No tests found, skipping..."
+        working-directory: site-repo
