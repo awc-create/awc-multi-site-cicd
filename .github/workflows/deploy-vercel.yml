@@ -13,6 +13,11 @@ on:
         required: true
         type: string
 
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', inputs.repository_name)] }}
+  VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', inputs.repository_name)] }}
+
 jobs:
   deploy-to-vercel:
     runs-on: ubuntu-latest
@@ -34,14 +39,14 @@ jobs:
         run: |
           vercel pull --yes \
             --environment=production \
-            --token=${{ secrets.VERCEL_TOKEN }} \
-            --scope=${{ secrets[format('{0}_VERCEL_ORG_ID', inputs.repository_name)] }}
+            --token=${{ env.VERCEL_TOKEN }} \
+            --scope=${{ env.VERCEL_ORG_ID }}
         working-directory: site-repo
 
       - name: Build Project Artifacts
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --token=${{ env.VERCEL_TOKEN }}
         working-directory: site-repo
 
       - name: Deploy Production Artifacts
-        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --token=${{ env.VERCEL_TOKEN }}
         working-directory: site-repo
