@@ -16,6 +16,7 @@ jobs:
       repository: ${{ github.event.client_payload.repository }}
       repository_name: ${{ github.event.client_payload.repository_name }}
       branch: ${{ github.event.client_payload.branch }}
+      path: site-repo
 
     steps:
       - name: Checkout Project Repo
@@ -25,9 +26,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ github.event.client_payload.branch }}
+          path: site-repo
 
       - name: Debug Repository and Test Files
         run: |
+          cd site-repo
           echo "Current Repository: ${{ github.event.client_payload.repository }}"
           echo "Current Branch: $(git branch --show-current)"
           pwd
@@ -36,6 +39,7 @@ jobs:
 
       - name: Verify package.json
         run: |
+          cd site-repo
           if [ ! -f "package.json" ]; then
             echo "❌ package.json not found!" && exit 1
           else
@@ -45,6 +49,7 @@ jobs:
       - name: Read `.cicd-config.yml` (if exists)
         id: detect
         run: |
+          cd site-repo
           PROJECT_TYPE="static"
           if [ -f ".cicd-config.yml" ]; then
             PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
@@ -62,6 +67,7 @@ jobs:
       repository: ${{ needs.detect-project-type.outputs.repository }}
       repository_name: ${{ needs.detect-project-type.outputs.repository_name }}
       branch: ${{ needs.detect-project-type.outputs.branch }}
+      path: site-repo
 
     steps:
       - name: Checkout Project Repo
@@ -70,9 +76,11 @@ jobs:
           repository: ${{ needs.detect-project-type.outputs.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ needs.detect-project-type.outputs.branch }}
+          path: site-repo
 
       - name: Verify package.json
         run: |
+          cd site-repo
           if [ ! -f "package.json" ]; then
             echo "❌ package.json not found!" && exit 1
           else
@@ -80,16 +88,23 @@ jobs:
           fi
 
       - name: Install Dependencies
-        run: npm install
+        run: |
+          cd site-repo
+          npm install
 
       - name: Verify Working Directory and Test Files
         run: |
+          cd site-repo
           pwd
           ls -la
           find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
 
       - name: Build the Project
-        run: npm run build
+        run: |
+          cd site-repo
+          npm run build
 
       - name: Run Unit Tests
-        run: npm test || echo "⚠️ No tests found, skipping..."
+        run: |
+          cd site-repo
+          npm test || echo "⚠️ No tests found, skipping..."
