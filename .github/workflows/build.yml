@@ -18,35 +18,31 @@ jobs:
       project_type: ${{ steps.detect.outputs.PROJECT_TYPE }}
 
     steps:
-      - name: Define Repository Path
-        run: |
-          export REPO_DIR="/home/runner/work/${{ github.event.client_payload.repository_name }}/${{ github.event.client_payload.repository_name }}"
-          echo "REPO_DIR=$REPO_DIR" >> $GITHUB_ENV
-          echo "📁 Repository will be cloned into: $REPO_DIR"
-
-      - name: Checkout Target Repository into Correct Path
+      - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.client_payload.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ github.event.client_payload.branch }}
-          path: ${{ github.event.client_payload.repository_name }}  # ✅ Forces correct directory
+          path: site-repo  # ✅ Clones into site-repo
 
       - name: Debug - Verify Repository and Files
         run: |
-          echo "✅ Cloned repository successfully into: $REPO_DIR"
+          echo "✅ Cloned repository successfully into site-repo"
           echo "Current Directory:"
           pwd
-          ls -la $REPO_DIR  # ✅ List all files to ensure package.json exists
+          ls -la
+        working-directory: site-repo
 
       - name: Verify package.json
         run: |
-          if [ ! -f "$REPO_DIR/package.json" ]; then
+          if [ ! -f "package.json" ]; then
             echo "❌ package.json not found!" && exit 1
           else
             echo "✅ package.json found."
           fi
+        working-directory: site-repo
 
       - name: Read `.cicd-config.yml` (if exists)
         id: detect
