@@ -100,7 +100,7 @@ jobs:
       - name: Install Dependencies
         run: |
           ls -la
-          npm install
+          yarn install --immutable
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Verify Working Directory and Test Files
@@ -112,13 +112,13 @@ jobs:
       - name: Build the Project
         run: |
           ls -la
-          npm run build
+          yarn build
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Run Unit Tests
         run: |
           ls -la
-          npm test || echo "No tests found, skipping..."
+          yarn test || echo "No tests found, skipping..."
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
   preview-to-vercel:
@@ -136,7 +136,7 @@ jobs:
           path: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Install Vercel CLI
-        run: npm install -g vercel
+        run: yarn global add vercel
         working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Pull Vercel Preview Environment
@@ -170,7 +170,7 @@ jobs:
           path: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Install Vercel CLI
-        run: npm install -g vercel
+        run: yarn global add vercel
         working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Pull Vercel Production Environment
