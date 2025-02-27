@@ -37,13 +37,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
           ref: ${{ github.event.client_payload.branch }}
-          path: site-repo
+          path: ${{ github.event.client_payload.repository_name }}
 
       - name: Debug - Verify Repository and Files
         run: |
           echo "Current Directory: $(pwd)"
           ls -la
-        working-directory: site-repo
+        working-directory: ${{ github.event.client_payload.repository_name }}
 
       - name: Verify package.json and Print Full Path
         run: |
@@ -54,7 +54,7 @@ jobs:
           else
             echo "package.json found at: $(pwd)/package.json"
           fi
-        working-directory: site-repo
+        working-directory: ${{ github.event.client_payload.repository_name }}
 
       - name: Read `.cicd-config.yml` (if exists)
         id: detect
@@ -68,7 +68,7 @@ jobs:
             PROJECT_TYPE="terraform"
           fi
           echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
-        working-directory: site-repo
+        working-directory: ${{ github.event.client_payload.repository_name }}
 
   static_pipeline:
     needs: detect-project-type
@@ -86,7 +86,7 @@ jobs:
           repository: ${{ needs.detect-project-type.outputs.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ needs.detect-project-type.outputs.branch }}
-          path: site-repo
+          path: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Verify package.json
         run: |
@@ -95,31 +95,31 @@ jobs:
             echo "package.json not found"
             exit 1
           fi
-        working-directory: site-repo
+        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Install Dependencies
         run: |
           ls -la
           npm install
-        working-directory: site-repo
+        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Verify Working Directory and Test Files
         run: |
           ls -la
           find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
-        working-directory: site-repo
+        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Build the Project
         run: |
           ls -la
           npm run build
-        working-directory: site-repo
+        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Run Unit Tests
         run: |
           ls -la
           npm test || echo "No tests found, skipping..."
-        working-directory: site-repo
+        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
   preview-to-vercel:
     needs: static_pipeline
@@ -133,11 +133,11 @@ jobs:
           repository: ${{ needs.static_pipeline.outputs.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ needs.static_pipeline.outputs.branch }}
-          path: site-repo
+          path: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Install Vercel CLI
         run: npm install -g vercel
-        working-directory: site-repo
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Pull Vercel Preview Environment
         run: |
@@ -145,15 +145,15 @@ jobs:
             --environment=preview \
             --token=${{ env.VERCEL_TOKEN }} \
             --scope=${{ env.VERCEL_ORG_ID }}
-        working-directory: site-repo
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Build Project Artifacts
         run: vercel build --token=${{ env.VERCEL_TOKEN }}
-        working-directory: site-repo
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Deploy Preview Artifacts
         run: vercel deploy --prebuilt --token=${{ env.VERCEL_TOKEN }}
-        working-directory: site-repo
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
   production-to-vercel:
     needs: static_pipeline
@@ -167,11 +167,11 @@ jobs:
           repository: ${{ needs.static_pipeline.outputs.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: main
-          path: site-repo
+          path: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Install Vercel CLI
         run: npm install -g vercel
-        working-directory: site-repo
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Pull Vercel Production Environment
         run: |
@@ -179,12 +179,12 @@ jobs:
             --environment=production \
             --token=${{ env.VERCEL_TOKEN }} \
             --scope=${{ env.VERCEL_ORG_ID }}
-        working-directory: site-repo
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Build Project for Production
         run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
-        working-directory: site-repo
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Deploy Production Artifacts
         run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
-        working-directory: site-repo
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
