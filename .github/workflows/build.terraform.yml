@@ -1,7 +1,9 @@
 name: Deploy to AWS (Terraform)
 
 on:
-  repository_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -12,22 +14,17 @@ jobs:
   terraform_pipeline:
     runs-on: ubuntu-latest
 
-    outputs:
-      repository_name: ${{ github.event.client_payload.repository_name }}
-      branch: ${{ github.event.client_payload.branch }}
-
     env:
       AWS_REGION: eu-west-2
-      PROJECT_NAME: ${{ github.event.client_payload.repository_name }}
+      PROJECT_NAME: ${{ github.event.repository.name }}
+      BRANCH_NAME: ${{ github.ref_name }}
 
     steps:
       - name: Checkout Project Repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.client_payload.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.event.client_payload.branch }}
-          path: ${{ github.event.client_payload.repository_name }}
+          path: ${{ github.event.repository.name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -40,12 +37,12 @@ jobs:
           yarn lint || echo "Lint issues, continuing..."
           yarn build
           yarn test || echo "No tests found or skipped"
-        working-directory: ${{ github.event.client_payload.repository_name }}
+        working-directory: ${{ github.event.repository.name }}
 
       - name: Copy Static Build Output
         run: |
           mkdir -p static
-          cp -r ${{ github.event.client_payload.repository_name }}/out/* static/
+          cp -r ${{ github.event.repository.name }}/out/* static/
 
       - name: Checkout Infra Repository
         uses: actions/checkout@v4
