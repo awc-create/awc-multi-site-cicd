@@ -11,38 +11,109 @@ permissions:
   issues: write
 
 jobs:
-  terraform_pipeline:
+  detect-project-type:
     runs-on: ubuntu-latest
-
-    env:
-      AWS_REGION: eu-west-2
-      PROJECT_NAME: ${{ github.event.repository.name }}
-      BRANCH_NAME: ${{ github.ref_name }}
+    outputs:
+      repository: ${{ github.repository }}
+      repository_name: ${{ github.event.repository.name }}
+      branch: ${{ github.ref_name }}
+      project_type: ${{ steps.detect.outputs.PROJECT_TYPE }}
 
     steps:
-      - name: Checkout Project Repository
+      - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ github.event.repository.name }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-
-      - name: Install, Lint, Build, and Test
+      - name: Debug - Verify Repository and Files
         run: |
-          yarn install --immutable
-          yarn lint || echo "Lint issues, continuing..."
-          yarn build
-          yarn test || echo "No tests found or skipped"
+          echo "Current Directory: $(pwd)"
+          ls -la
         working-directory: ${{ github.event.repository.name }}
 
+      - name: Verify package.json and Print Full Path
+        run: |
+          ls -la
+          if [ ! -f "$(pwd)/package.json" ]; then
+            echo "package.json NOT found at: $(pwd)/package.json"
+            exit 1
+          else
+            echo "package.json found at: $(pwd)/package.json"
+          fi
+        working-directory: ${{ github.event.repository.name }}
+
+      - name: Read `.cicd-config.yml` (if exists)
+        id: detect
+        run: |
+          PROJECT_TYPE="static"
+          if [ -f ".cicd-config.yml" ]; then
+            PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
+          fi
+          if ls *.tf &>/dev/null; then
+            PROJECT_TYPE="terraform"
+          fi
+          echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
+        working-directory: ${{ github.event.repository.name }}
+
+  static_pipeline:
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.project_type == 'static'
+    runs-on: ubuntu-latest
+    outputs:
+      repository: ${{ needs.detect-project-type.outputs.repository }}
+      repository_name: ${{ needs.detect-project-type.outputs.repository_name }}
+      branch: ${{ needs.detect-project-type.outputs.branch }}
+
+    steps:
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ needs.detect-project-type.outputs.branch }}
+          path: ${{ needs.detect-project-type.outputs.repository_name }}
+
+      - name: Verify package.json
+        run: |
+          ls -la
+          if [ ! -f "package.json" ]; then
+            echo "package.json not found"
+            exit 1
+          fi
+        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
+
+      - name: Install Dependencies
+        run: yarn install --immutable
+        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
+
+      - name: Verify Working Directory and Test Files
+        run: |
+          find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
+        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
+
+      - name: Build the Project
+        run: yarn build
+        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
+
+      - name: Run Unit Tests
+        run: |
+          yarn test || echo "No tests found, skipping..."
+        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
+
+  terraform_pipeline:
+    needs: static_pipeline
+    if: needs.static_pipeline.outputs.branch == 'main'
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: eu-west-2
+      PROJECT_NAME: ${{ needs.static_pipeline.outputs.repository_name }}
+
+    steps:
       - name: Copy Static Build Output
         run: |
           mkdir -p static
-          cp -r ${{ github.event.repository.name }}/out/* static/
+          cp -r ${{ needs.static_pipeline.outputs.repository_name }}/out/* static/
 
       - name: Checkout Infra Repository
         uses: actions/checkout@v4
