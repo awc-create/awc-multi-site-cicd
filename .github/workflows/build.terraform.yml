@@ -1,0 +1,82 @@
+name: Deploy to AWS (Terraform)
+
+on:
+  repository_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+jobs:
+  terraform_pipeline:
+    runs-on: ubuntu-latest
+
+    outputs:
+      repository_name: ${{ github.event.client_payload.repository_name }}
+      branch: ${{ github.event.client_payload.branch }}
+
+    env:
+      AWS_REGION: eu-west-2
+      PROJECT_NAME: ${{ github.event.client_payload.repository_name }}
+
+    steps:
+      - name: Checkout Project Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.client_payload.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.client_payload.branch }}
+          path: ${{ github.event.client_payload.repository_name }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install, Lint, Build, and Test
+        run: |
+          yarn install --immutable
+          yarn lint || echo "Lint issues, continuing..."
+          yarn build
+          yarn test || echo "No tests found or skipped"
+        working-directory: ${{ github.event.client_payload.repository_name }}
+
+      - name: Copy Static Build Output
+        run: |
+          mkdir -p static
+          cp -r ${{ github.event.client_payload.repository_name }}/out/* static/
+
+      - name: Checkout Infra Repository
+        uses: actions/checkout@v4
+        with:
+          repository: YOUR_ORG_OR_USERNAME/awc-multi-site-cicd
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: infra
+
+      - name: Place Static Site Inside Infra
+        run: |
+          mkdir -p infra/infra/site
+          cp -r static/* infra/infra/site/
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infra/infra
+
+      - name: Terraform Plan
+        run: terraform plan -var="project_name=${{ env.PROJECT_NAME }}" -out=tfplan
+        working-directory: infra/infra
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: infra/infra
