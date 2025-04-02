@@ -10,8 +10,6 @@ on:
       - '**'
   repository_dispatch:
 
-
-
 env:
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
   VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.repository)] }}
