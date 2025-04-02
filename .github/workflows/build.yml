@@ -54,10 +54,21 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           path: temp-infra
   
-      - name: Move Terraform into Site Repo
+      - name: Copy Terraform into Site Repo
         run: |
           mkdir -p ${{ github.event.client_payload.repository_name }}/terraform
           cp -r temp-infra/infra/* ${{ github.event.client_payload.repository_name }}/terraform/
+
+      - name: Print Terraform Files
+        run: |
+            echo "==== PROJECT ROOT ===="
+            ls -la ${{ github.event.client_payload.repository_name }}
+            
+            echo "==== TERRAFORM FILES ===="
+            ls -la ${{ github.event.client_payload.repository_name }}/terraform
+        
+            echo "==== All .tf Files ===="
+            find ${{ github.event.client_payload.repository_name }}/terraform -name "*.tf"        
   
       - name: Debug - Verify Final Structure
         run: |
