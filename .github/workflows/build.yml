@@ -47,20 +47,24 @@ jobs:
         working-directory: ${{ github.event.client_payload.repository_name }}
 
       
-      - name: Checkout Infra Repository into Project Folder
+      - name: Checkout Infra Repo to temp-infra/
         uses: actions/checkout@v4
         with:
           repository: awc-create/awc-multi-site-cicd
           token: ${{ secrets.GITHUB_TOKEN }}
-          path: ${{ github.event.client_payload.repository_name }}/infra
-
-      - name: Debug - Verify Repository and Files
+          path: temp-infra
+  
+      - name: Move Terraform into Site Repo
         run: |
-            echo "=== PROJECT ROOT CONTENTS ==="
-            ls -la ${{ github.event.client_payload.repository_name }}
-            echo "=== INFRA CONTENTS ==="
-            ls -la ${{ github.event.client_payload.repository_name }}/infra
-        working-directory: ${{ github.event.client_payload.repository_name }}
+          mkdir -p ${{ github.event.client_payload.repository_name }}/terraform
+          cp -r temp-infra/infra/* ${{ github.event.client_payload.repository_name }}/terraform/
+  
+      - name: Debug - Verify Final Structure
+        run: |
+          echo "== PROJECT DIR =="
+          ls -la ${{ github.event.client_payload.repository_name }}
+          echo "== TERRAFORM DIR =="
+          ls -la ${{ github.event.client_payload.repository_name }}/terraform
 
       - name: Verify package.json and Print Full Path
         run: |
