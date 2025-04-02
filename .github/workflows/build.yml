@@ -46,6 +46,22 @@ jobs:
           ls -la
         working-directory: ${{ github.event.client_payload.repository_name }}
 
+      
+      - name: Checkout Infra Repository into Project Folder
+        uses: actions/checkout@v4
+        with:
+          repository: awc-create/awc-multi-site-cicd
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ github.event.client_payload.repository_name }}/infra
+
+      - name: Debug - Verify Repository and Files
+        run: |
+            echo "=== PROJECT ROOT CONTENTS ==="
+            ls -la ${{ github.event.client_payload.repository_name }}
+            echo "=== INFRA CONTENTS ==="
+            ls -la ${{ github.event.client_payload.repository_name }}/infra
+        working-directory: ${{ github.event.client_payload.repository_name }}
+
       - name: Verify package.json and Print Full Path
         run: |
           ls -la
@@ -158,7 +174,7 @@ jobs:
 
   production-to-vercel:
     needs: static_pipeline
-    if: needs.static_pipeline.outputs.branch == 'main'
+    if: needs.static_pipeline.outputs.branch == 'dev'
     runs-on: ubuntu-latest
 
     steps:
@@ -167,7 +183,7 @@ jobs:
         with:
           repository: ${{ needs.static_pipeline.outputs.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: main
+          ref: dev
           path: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Install Vercel CLI
