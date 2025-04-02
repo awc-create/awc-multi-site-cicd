@@ -1,21 +1,9 @@
-name: Build, Test, and Deploy to Vercel
+name: Deploy to AWS (Terraform)
 
 on:
   push:
     branches:
-      - dev
-      - 'feat/**'
-      - 'fix/**'
-    paths-ignore:
-      - '**'
-  repository_dispatch:
-
-
-
-env:
-  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.repository)] }}
-  VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', github.repository)] }}
+      - main
 
 permissions:
   contents: read
@@ -26,26 +14,23 @@ jobs:
   detect-project-type:
     runs-on: ubuntu-latest
     outputs:
-      repository: ${{ github.event.client_payload.repository }}
-      repository_name: ${{ github.event.client_payload.repository_name }}
-      branch: ${{ github.event.client_payload.branch }}
+      repository: ${{ github.repository }}
+      repository_name: ${{ github.event.repository.name }}
+      branch: ${{ github.ref_name }}
       project_type: ${{ steps.detect.outputs.PROJECT_TYPE }}
 
     steps:
       - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.client_payload.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-          ref: ${{ github.event.client_payload.branch }}
-          path: ${{ github.event.client_payload.repository_name }}
+          path: ${{ github.event.repository.name }}
 
       - name: Debug - Verify Repository and Files
         run: |
           echo "Current Directory: $(pwd)"
           ls -la
-        working-directory: ${{ github.event.client_payload.repository_name }}
+        working-directory: ${{ github.event.repository.name }}
 
       - name: Verify package.json and Print Full Path
         run: |
@@ -56,12 +41,11 @@ jobs:
           else
             echo "package.json found at: $(pwd)/package.json"
           fi
-        working-directory: ${{ github.event.client_payload.repository_name }}
+        working-directory: ${{ github.event.repository.name }}
 
       - name: Read `.cicd-config.yml` (if exists)
         id: detect
         run: |
-          ls -la
           PROJECT_TYPE="static"
           if [ -f ".cicd-config.yml" ]; then
             PROJECT_TYPE=$(grep "project_type:" .cicd-config.yml | awk '{print $2}')
@@ -70,7 +54,7 @@ jobs:
             PROJECT_TYPE="terraform"
           fi
           echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
-        working-directory: ${{ github.event.client_payload.repository_name }}
+        working-directory: ${{ github.event.repository.name }}
 
   static_pipeline:
     needs: detect-project-type
@@ -85,7 +69,6 @@ jobs:
       - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ needs.detect-project-type.outputs.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ needs.detect-project-type.outputs.branch }}
           path: ${{ needs.detect-project-type.outputs.repository_name }}
@@ -100,93 +83,68 @@ jobs:
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Install Dependencies
-        run: |
-          ls -la
-          yarn install --immutable
+        run: yarn install --immutable
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Verify Working Directory and Test Files
         run: |
-          ls -la
           find . -type f -name "*.test.tsx" -o -name "*.spec.tsx"
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Build the Project
-        run: |
-          ls -la
-          yarn build
+        run: yarn build
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
       - name: Run Unit Tests
         run: |
-          ls -la
           yarn test || echo "No tests found, skipping..."
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
-  preview-to-vercel:
-    needs: static_pipeline
-    if: startsWith(needs.static_pipeline.outputs.branch, 'feat/') || startsWith(needs.static_pipeline.outputs.branch, 'fix/')
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Target Repository
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ needs.static_pipeline.outputs.repository }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ needs.static_pipeline.outputs.branch }}
-          path: ${{ needs.static_pipeline.outputs.repository_name }}
-
-      - name: Install Vercel CLI
-        run: yarn global add vercel
-        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
-
-      - name: Pull Vercel Preview Environment
-        run: |
-          vercel pull --yes \
-            --environment=preview \
-            --token=${{ env.VERCEL_TOKEN }} \
-            --scope=${{ env.VERCEL_ORG_ID }}
-        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
-
-      - name: Build Project Artifacts
-        run: vercel build --token=${{ env.VERCEL_TOKEN }}
-        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
-
-      - name: Deploy Preview Artifacts
-        run: vercel deploy --prebuilt --token=${{ env.VERCEL_TOKEN }}
-        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
-
-  production-to-vercel:
+  terraform_pipeline:
     needs: static_pipeline
     if: needs.static_pipeline.outputs.branch == 'main'
     runs-on: ubuntu-latest
 
+    env:
+      AWS_REGION: eu-west-2
+      PROJECT_NAME: ${{ needs.static_pipeline.outputs.repository_name }}
+
     steps:
-      - name: Checkout Target Repository
+      - name: Copy Static Build Output
+        run: |
+          mkdir -p static
+          cp -r ${{ needs.static_pipeline.outputs.repository_name }}/out/* static/
+
+      - name: Checkout Infra Repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ needs.static_pipeline.outputs.repository }}
+          repository: YOUR_ORG_OR_USERNAME/awc-multi-site-cicd
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: main
-          path: ${{ needs.static_pipeline.outputs.repository_name }}
+          path: infra
 
-      - name: Install Vercel CLI
-        run: yarn global add vercel
-        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
-
-      - name: Pull Vercel Production Environment
+      - name: Place Static Site Inside Infra
         run: |
-          vercel pull --yes \
-            --environment=production \
-            --token=${{ env.VERCEL_TOKEN }} \
-            --scope=${{ env.VERCEL_ORG_ID }}
-        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
+          mkdir -p infra/infra/site
+          cp -r static/* infra/infra/site/
 
-      - name: Build Project for Production
-        run: vercel build --prod --token=${{ env.VERCEL_TOKEN }}
-        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy Production Artifacts
-        run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
-        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infra/infra
+
+      - name: Terraform Plan
+        run: terraform plan -var="project_name=${{ env.PROJECT_NAME }}" -out=tfplan
+        working-directory: infra/infra
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: infra/infra
