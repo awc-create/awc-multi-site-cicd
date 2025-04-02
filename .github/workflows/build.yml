@@ -236,17 +236,29 @@ jobs:
                 mkdir -p static
                 cp -r ${{ needs.static_pipeline.outputs.repository_name }}/out/* static/
       
-            - name: Checkout Infra Repository
+            - name: Checkout Infra Repo to temp-infra/
               uses: actions/checkout@v4
               with:
-                repository: YOUR_ORG_OR_USERNAME/awc-multi-site-cicd
+                repository: awc-create/awc-multi-site-cicd
                 token: ${{ secrets.GITHUB_TOKEN }}
-                path: infra
+                path: temp-infra
       
-            - name: Place Static Site Inside Infra
+            - name: Move Terraform into Site Repo
               run: |
-                mkdir -p infra/infra/site
-                cp -r static/* infra/infra/site/
+                mkdir -p ${{ needs.static_pipeline.outputs.repository_name }}/terraform
+                cp -r temp-infra/infra/* ${{ needs.static_pipeline.outputs.repository_name }}/terraform/
+      
+            - name: Move Static Build into Terraform Folder
+              run: |
+                mkdir -p ${{ needs.static_pipeline.outputs.repository_name }}/terraform/site
+                cp -r static/* ${{ needs.static_pipeline.outputs.repository_name }}/terraform/site/
+      
+            - name: Print Terraform File Structure
+              run: |
+                echo "==== Terraform Folder Contents ===="
+                ls -la ${{ needs.static_pipeline.outputs.repository_name }}/terraform
+                echo "==== All .tf Files ===="
+                find ${{ needs.static_pipeline.outputs.repository_name }}/terraform -name "*.tf"
       
             - name: Configure AWS Credentials
               uses: aws-actions/configure-aws-credentials@v2
@@ -260,13 +272,13 @@ jobs:
       
             - name: Terraform Init
               run: terraform init
-              working-directory: infra/infra
+              working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
       
             - name: Terraform Plan
               run: terraform plan -var="project_name=${{ env.PROJECT_NAME }}" -out=tfplan
-              working-directory: infra/infra
+              working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
       
             - name: Terraform Apply
               run: terraform apply -auto-approve tfplan
-              working-directory: infra/infra
+              working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
       
