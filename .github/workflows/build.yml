@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - main
       - 'feat/**'
       - 'fix/**'
     paths-ignore:
@@ -188,3 +189,53 @@ jobs:
       - name: Deploy Production Artifacts
         run: vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
         working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
+
+  terraform_pipeline:
+          needs: static_pipeline
+          if: needs.static_pipeline.outputs.branch == 'main'
+          runs-on: ubuntu-latest
+      
+          env:
+            AWS_REGION: eu-west-2
+            PROJECT_NAME: ${{ needs.static_pipeline.outputs.repository_name }}
+      
+          steps:
+            - name: Copy Static Build Output
+              run: |
+                mkdir -p static
+                cp -r ${{ needs.static_pipeline.outputs.repository_name }}/out/* static/
+      
+            - name: Checkout Infra Repository
+              uses: actions/checkout@v4
+              with:
+                repository: YOUR_ORG_OR_USERNAME/awc-multi-site-cicd
+                token: ${{ secrets.GITHUB_TOKEN }}
+                path: infra
+      
+            - name: Place Static Site Inside Infra
+              run: |
+                mkdir -p infra/infra/site
+                cp -r static/* infra/infra/site/
+      
+            - name: Configure AWS Credentials
+              uses: aws-actions/configure-aws-credentials@v2
+              with:
+                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                aws-region: ${{ env.AWS_REGION }}
+      
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+      
+            - name: Terraform Init
+              run: terraform init
+              working-directory: infra/infra
+      
+            - name: Terraform Plan
+              run: terraform plan -var="project_name=${{ env.PROJECT_NAME }}" -out=tfplan
+              working-directory: infra/infra
+      
+            - name: Terraform Apply
+              run: terraform apply -auto-approve tfplan
+              working-directory: infra/infra
+      
