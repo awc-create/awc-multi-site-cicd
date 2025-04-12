@@ -260,7 +260,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: static-export
-          path: ${{ needs.static_pipeline.outputs.repository_name }}/out
+          path: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Checkout Target Repository
         uses: actions/checkout@v4
