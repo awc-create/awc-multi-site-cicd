@@ -156,17 +156,19 @@ jobs:
 
       - name: Verify out/ folder was created
         run: |
-          echo "📦 Listing all files recursively from current working directory:"
-          find . -type f
+          echo "📦 Listing all files recursively under '${{ needs.detect-project-type.outputs.repository_name }}':"
+          find ${{ needs.detect-project-type.outputs.repository_name }} -type f
       
-          if [ ! -d "out" ]; then
-            echo "❌ Build failed: 'out/' folder not found. Make sure 'yarn build' generates a static export."
+          echo ""
+          echo "📂 Checking if '${{ needs.detect-project-type.outputs.repository_name }}/out/' folder exists..."
+      
+          if [ ! -d "${{ needs.detect-project-type.outputs.repository_name }}/out" ]; then
+            echo "❌ Build failed: '${{ needs.detect-project-type.outputs.repository_name }}/out/' folder not found. Make sure 'yarn build' generates a static export."
             exit 1
           else
-            echo "✅ 'out/' folder exists."
+            echo "✅ '${{ needs.detect-project-type.outputs.repository_name }}/out/' folder exists."
           fi
-        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
-
+      
       - name: Run Unit Tests
         run: |
           ls -la
