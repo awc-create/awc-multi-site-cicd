@@ -15,6 +15,8 @@ env:
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
   VERCEL_ORG_ID: ${{ secrets[format('{0}_VERCEL_ORG_ID', github.repository)] }}
   VERCEL_PROJECT_ID: ${{ secrets[format('{0}_VERCEL_PROJECT_ID', github.repository)] }}
+  CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets[format('{0}_CLOUDFRONT_DISTRIBUTION_ID', github.repository)] }}
+  S3_BUCKET_NAME: ${{ secrets[format('{0}_S3_BUCKET_NAME', github.repository)] }}
 
 permissions:
   contents: read
@@ -222,63 +224,69 @@ jobs:
         working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
   terraform_pipeline:
-          needs: static_pipeline
-          if: needs.static_pipeline.outputs.branch == 'main'
-          runs-on: ubuntu-latest
-      
-          env:
-            AWS_REGION: eu-west-2
-            PROJECT_NAME: ${{ needs.static_pipeline.outputs.repository_name }}
-      
-          steps:
-            - name: Copy Static Build Output
-              run: |
-                mkdir -p static
-                cp -r ${{ needs.static_pipeline.outputs.repository_name }}/out/* static/
-      
-            - name: Checkout Infra Repo to temp-infra/
-              uses: actions/checkout@v4
-              with:
-                repository: awc-create/awc-multi-site-cicd
-                token: ${{ secrets.GITHUB_TOKEN }}
-                path: temp-infra
-      
-            - name: Move Terraform into Site Repo
-              run: |
-                mkdir -p ${{ needs.static_pipeline.outputs.repository_name }}/terraform
-                cp -r temp-infra/infra/* ${{ needs.static_pipeline.outputs.repository_name }}/terraform/
-      
-            - name: Move Static Build into Terraform Folder
-              run: |
-                mkdir -p ${{ needs.static_pipeline.outputs.repository_name }}/terraform/site
-                cp -r static/* ${{ needs.static_pipeline.outputs.repository_name }}/terraform/site/
-      
-            - name: Print Terraform File Structure
-              run: |
-                echo "==== Terraform Folder Contents ===="
-                ls -la ${{ needs.static_pipeline.outputs.repository_name }}/terraform
-                echo "==== All .tf Files ===="
-                find ${{ needs.static_pipeline.outputs.repository_name }}/terraform -name "*.tf"
-      
-            - name: Configure AWS Credentials
-              uses: aws-actions/configure-aws-credentials@v2
-              with:
-                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                aws-region: ${{ env.AWS_REGION }}
-      
-            - name: Setup Terraform
-              uses: hashicorp/setup-terraform@v3
-      
-            - name: Terraform Init
-              run: terraform init
-              working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
-      
-            - name: Terraform Plan
-              run: terraform plan -var="project_name=${{ env.PROJECT_NAME }}" -out=tfplan
-              working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
-      
-            - name: Terraform Apply
-              run: terraform apply -auto-approve tfplan
-              working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
-      
+    needs: static_pipeline
+    if: needs.static_pipeline.outputs.branch == 'main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Copy Static Build Output
+        run: |
+          mkdir -p static
+          cp -r ${{ needs.static_pipeline.outputs.repository_name }}/out/* static/
+
+      - name: Checkout Infra Repo to temp-infra/
+        uses: actions/checkout@v4
+        with:
+          repository: awc-create/awc-multi-site-cicd
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: temp-infra
+
+      - name: Move Terraform into Site Repo
+        run: |
+          mkdir -p ${{ needs.static_pipeline.outputs.repository_name }}/terraform
+          cp -r temp-infra/infra/* ${{ needs.static_pipeline.outputs.repository_name }}/terraform/
+
+      - name: Move Static Build into Terraform Folder
+        run: |
+          mkdir -p ${{ needs.static_pipeline.outputs.repository_name }}/terraform/site
+          cp -r static/* ${{ needs.static_pipeline.outputs.repository_name }}/terraform/site/
+
+      - name: Print Terraform File Structure
+        run: |
+          echo "==== Terraform Folder Contents ===="
+          ls -la ${{ needs.static_pipeline.outputs.repository_name }}/terraform
+          echo "==== All .tf Files ===="
+          find ${{ needs.static_pipeline.outputs.repository_name }}/terraform -name "*.tf"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
+
+      - name: Terraform Plan
+        run: terraform plan -var="project_name=${{ env.PROJECT_NAME }}" -out=tfplan
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
+
+      - name: Sync to S3 Bucket
+        run: |
+          aws s3 sync ${{ needs.static_pipeline.outputs.repository_name }}/terraform/site s3://${{ env.S3_BUCKET_NAME }} --delete
+
+      - name: Invalidate CloudFront Cache
+        if: env.CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
