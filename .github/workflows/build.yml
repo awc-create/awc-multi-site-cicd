@@ -268,7 +268,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: static-export
-          path: ${{ needs.static_pipeline.outputs.repository_name }}
+          path: ${{ needs.static_pipeline.outputs.repository_name }}/out
 
       - name: Verify out/ folder still exists
         run: |
