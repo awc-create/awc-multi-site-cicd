@@ -256,16 +256,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: main
           path: ${{ needs.static_pipeline.outputs.repository_name }}
-          
-      - name: Install Dependencies and Build
-        run: |
-          echo "📦 Installing dependencies..."
-          yarn install --immutable
-
-          echo ""
-          echo "🚧 Running yarn build..."
-          yarn build
-        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Verify out/ folder still exists
         run: |
