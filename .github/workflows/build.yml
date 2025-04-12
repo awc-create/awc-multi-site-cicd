@@ -249,6 +249,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Verify out/ folder still exists
+        run: |
+          echo "📦 Listing all files recursively under '${{ needs.detect-project-type.outputs.repository_name }}':"
+          find ${{ needs.detect-project-type.outputs.repository_name }} -type f
+      
+          echo ""
+          echo "📂 Checking if '${{ needs.detect-project-type.outputs.repository_name }}/out/' folder exists..."
+      
+          if [ ! -d "${{ needs.detect-project-type.outputs.repository_name }}/out" ]; then
+            echo "❌ Build failed: '${{ needs.detect-project-type.outputs.repository_name }}/out/' folder not found. Make sure 'yarn build' generates a static export."
+            exit 1
+          else
+            echo "✅ '${{ needs.detect-project-type.outputs.repository_name }}/out/' folder exists."
+          fi
+
       - name: Copy Static Build Output
         run: |
           mkdir -p static
