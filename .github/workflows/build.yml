@@ -257,8 +257,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.static_pipeline.outputs.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+          path: ${{ needs.static_pipeline.outputs.repository_name }}
+
       - name: Download Static Export Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: static-export
           path: out  # Files go to ./out
