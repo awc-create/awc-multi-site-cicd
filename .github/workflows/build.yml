@@ -168,7 +168,7 @@ jobs:
           else
             echo "✅ '${{ needs.detect-project-type.outputs.repository_name }}/out/' folder exists."
           fi
-      
+
       - name: Run Unit Tests
         run: |
           ls -la
@@ -259,18 +259,19 @@ jobs:
 
       - name: Verify out/ folder still exists
         run: |
-          echo "📦 Listing all files recursively under '${{ needs.detect-project-type.outputs.repository_name }}':"
-          find ${{ needs.detect-project-type.outputs.repository_name }} -type f
+          echo "📦 Listing all files recursively under '${{ needs.static_pipeline.outputs.repository_name }}':"
+          find ${{ needs.static_pipeline.outputs.repository_name }} -type f
       
           echo ""
-          echo "📂 Checking if '${{ needs.detect-project-type.outputs.repository_name }}/out/' folder exists..."
+          echo "📂 Checking if '${{ needs.static_pipeline.outputs.repository_name }}/out/' folder exists..."
       
-          if [ ! -d "${{ needs.detect-project-type.outputs.repository_name }}/out" ]; then
-            echo "❌ Build failed: '${{ needs.detect-project-type.outputs.repository_name }}/out/' folder not found. Make sure 'yarn build' generates a static export."
+          if [ ! -d "${{ needs.static_pipeline.outputs.repository_name }}/out" ]; then
+            echo "❌ Build failed: '${{ needs.static_pipeline.outputs.repository_name }}/out/' folder not found. Make sure 'yarn build' generates a static export."
             exit 1
           else
-            echo "✅ '${{ needs.detect-project-type.outputs.repository_name }}/out/' folder exists."
+            echo "✅ '${{ needs.static_pipeline.outputs.repository_name }}/out/' folder exists."
           fi
+          working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
 
       - name: Copy Static Build Output
         run: |
