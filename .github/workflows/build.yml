@@ -249,6 +249,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Install Dependencies and Build
+        run: |
+          echo "📦 Installing dependencies..."
+          yarn install --immutable
+
+          echo ""
+          echo "🚧 Running yarn build..."
+          yarn build
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
+
       - name: Verify out/ folder still exists
         run: |
           echo "📦 Listing all files recursively under '${{ needs.detect-project-type.outputs.repository_name }}':"
