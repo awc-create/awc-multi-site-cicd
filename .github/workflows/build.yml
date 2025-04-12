@@ -115,6 +115,14 @@ jobs:
       branch: ${{ needs.detect-project-type.outputs.branch }}
 
     steps:
+          
+      - name: 🔍 Print Secret-Resolved ENV Variables
+        run: |
+          echo "✅ VERCEL_ORG_ID = $VERCEL_ORG_ID"
+          echo "✅ VERCEL_PROJECT_ID = $VERCEL_PROJECT_ID"
+          echo "✅ CLOUDFRONT_DISTRIBUTION_ID = $CLOUDFRONT_DISTRIBUTION_ID"
+          echo "✅ S3_BUCKET_NAME = $S3_BUCKET_NAME"
+          
       - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
@@ -281,22 +289,6 @@ jobs:
       - name: Debug S3_BUCKET_NAME
         run: |
           echo "✅ S3_BUCKET_NAME is set to: $S3_BUCKET_NAME"
-
-      - name: Debug resolved S3_BUCKET_NAME
-        run: |
-          echo "🔍 S3_BUCKET_NAME resolved to: $S3_BUCKET_NAME"
-
-          - name: 🔍 Print Repository Info
-          run: |
-            echo "github.repository = ${{ github.repository }}"
-            echo "REPO_KEY = $REPO_KEY"
-    
-      - name: 🔍 Print Secret-Resolved ENV Variables
-        run: |
-          echo "✅ VERCEL_ORG_ID = $VERCEL_ORG_ID"
-          echo "✅ VERCEL_PROJECT_ID = $VERCEL_PROJECT_ID"
-          echo "✅ CLOUDFRONT_DISTRIBUTION_ID = $CLOUDFRONT_DISTRIBUTION_ID"
-          echo "✅ S3_BUCKET_NAME = $S3_BUCKET_NAME"
         
       - name: Sync Static Files to S3
         run: |
