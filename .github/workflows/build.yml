@@ -250,7 +250,7 @@ jobs:
       - name: Copy Static Build Output
         run: |
           mkdir -p static
-          cp -r ${{ needs.static_pipeline.outputs.repository_name }}/out/* static/
+          cp -r ${{ needs.static_pipeline.outputs.repository_name }}/out/. static/
 
       - name: Checkout Infra Repo to temp-infra/
         uses: actions/checkout@v4
