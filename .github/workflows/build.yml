@@ -282,6 +282,10 @@ jobs:
         run: |
           echo "✅ S3_BUCKET_NAME is set to: $S3_BUCKET_NAME"
 
+      - name: Debug resolved S3_BUCKET_NAME
+        run: |
+          echo "🔍 S3_BUCKET_NAME resolved to: $S3_BUCKET_NAME"
+        
       - name: Sync Static Files to S3
         run: |
           echo "📦 Syncing static site to S3..."
