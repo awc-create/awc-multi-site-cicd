@@ -177,7 +177,7 @@ jobs:
       
       - name: Upload Static Export (out/)
         if: success()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: static-export
           path: ${{ needs.detect-project-type.outputs.repository_name }}/out
@@ -257,7 +257,7 @@ jobs:
 
     steps:
       - name: Download Static Export Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: static-export
           path: ${{ needs.static_pipeline.outputs.repository_name }}/out
