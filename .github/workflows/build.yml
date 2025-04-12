@@ -130,6 +130,11 @@ jobs:
             exit 1
           fi
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
+      
+      - name: Use Node.js 22 (match local env)
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
 
       - name: Install Dependencies
         run: |
