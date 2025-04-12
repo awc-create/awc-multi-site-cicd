@@ -149,6 +149,16 @@ jobs:
           yarn build
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
+      - name: Verify out/ folder was created
+        run: |
+          if [ ! -d "out" ]; then
+            echo "❌ Build failed: 'out/' folder not found. Make sure 'yarn build' generates a static export."
+            exit 1
+          else
+            echo "✅ 'out/' folder exists."
+          fi
+        working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
+
       - name: Run Unit Tests
         run: |
           ls -la
