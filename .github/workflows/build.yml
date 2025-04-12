@@ -122,7 +122,7 @@ jobs:
           echo "✅ VERCEL_PROJECT_ID = $VERCEL_PROJECT_ID"
           echo "✅ CLOUDFRONT_DISTRIBUTION_ID = $CLOUDFRONT_DISTRIBUTION_ID"
           echo "✅ S3_BUCKET_NAME = $S3_BUCKET_NAME"
-          
+
       - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
@@ -265,6 +265,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Set Repo Key Env
+        id: set
+        run: |
+          echo "REPO_KEY=${{ needs.static_pipeline.outputs.repository_name }}" >> $GITHUB_ENV
+          echo "REPO_KEY_UPPER=$(echo '${{ needs.static_pipeline.outputs.repository_name }}' | tr '[:lower:]-' '[:upper:]_')" >> $GITHUB_ENV
+
       - name: Checkout Target Repository
         uses: actions/checkout@v4
         with:
@@ -277,31 +283,39 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: static-export
-          path: out  # Files go to ./out
+          path: out
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: eu-west-2
 
-      - name: Debug S3_BUCKET_NAME
+      - name: Set dynamic secrets as environment vars
+        env:
+          REPO_KEY: ${{ env.REPO_KEY_UPPER }}
+          S3_BUCKET: ${{ secrets[format('{0}_S3_BUCKET_NAME', env.REPO_KEY_UPPER)] }}
+          CLOUDFRONT_ID: ${{ secrets[format('{0}_CLOUDFRONT_DISTRIBUTION_ID', env.REPO_KEY_UPPER)] }}
         run: |
-          echo "✅ S3_BUCKET_NAME is set to: $S3_BUCKET_NAME"
-        
+          echo "✅ S3_BUCKET_NAME: $S3_BUCKET"
+          echo "✅ CLOUDFRONT_DISTRIBUTION_ID: $CLOUDFRONT_ID"
+          echo "S3_BUCKET=$S3_BUCKET" >> $GITHUB_ENV
+          echo "CLOUDFRONT_ID=$CLOUDFRONT_ID" >> $GITHUB_ENV
+
       - name: Sync Static Files to S3
         run: |
-          echo "📦 Syncing static site to S3..."
-          aws s3 sync out/ s3://${{ env.S3_BUCKET_NAME }} --delete
+          echo "📦 Syncing static site to S3 bucket: $S3_BUCKET"
+          aws s3 sync out/ s3://$S3_BUCKET --delete
 
       - name: Invalidate CloudFront Cache
-        if: env.CLOUDFRONT_DISTRIBUTION_ID != ''
+        if: env.CLOUDFRONT_ID != ''
         run: |
-          echo "🚀 Invalidating CloudFront cache..."
+          echo "🚀 Invalidating CloudFront cache for: $CLOUDFRONT_ID"
           aws cloudfront create-invalidation \
-            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --distribution-id $CLOUDFRONT_ID \
             --paths "/*"
+
 
   # terraform_pipeline:
   #   needs: static_pipeline
