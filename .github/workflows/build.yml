@@ -249,6 +249,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.static_pipeline.outputs.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+          path: ${{ needs.static_pipeline.outputs.repository_name }}
+          
       - name: Install Dependencies and Build
         run: |
           echo "📦 Installing dependencies..."
