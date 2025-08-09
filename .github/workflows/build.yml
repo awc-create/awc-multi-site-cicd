@@ -150,6 +150,10 @@ jobs:
           yarn install --immutable
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
+      - name: Generate Prisma Client
+        run: yarn prisma generate
+        working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
+
       - name: Verify Working Directory and Test Files
         run: |
           ls -la
