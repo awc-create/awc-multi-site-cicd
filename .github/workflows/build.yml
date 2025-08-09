@@ -7,8 +7,10 @@ on:
       - main
       - 'feat/**'
       - 'fix/**'
-    paths-ignore:
-      - '**'
+    # NOTE: paths-ignore '**' prevents all push triggers.
+    # Remove or narrow this if you want pushes to run.
+    # paths-ignore:
+    #   - '**'
   repository_dispatch:
 
 env:
@@ -49,14 +51,13 @@ jobs:
           ls -la
         working-directory: ${{ github.event.client_payload.repository_name }}
 
-      
       - name: Checkout Infra Repo to temp-infra/
         uses: actions/checkout@v4
         with:
           repository: awc-create/awc-multi-site-cicd
           token: ${{ secrets.GITHUB_TOKEN }}
           path: temp-infra
-  
+
       - name: Copy Terraform into Site Repo
         run: |
           mkdir -p ${{ github.event.client_payload.repository_name }}/terraform
@@ -64,15 +65,13 @@ jobs:
 
       - name: Print Terraform Files
         run: |
-            echo "==== PROJECT ROOT ===="
-            ls -la ${{ github.event.client_payload.repository_name }}
-            
-            echo "==== TERRAFORM FILES ===="
-            ls -la ${{ github.event.client_payload.repository_name }}/terraform
-        
-            echo "==== All .tf Files ===="
-            find ${{ github.event.client_payload.repository_name }}/terraform -name "*.tf"        
-  
+          echo "==== PROJECT ROOT ===="
+          ls -la ${{ github.event.client_payload.repository_name }}
+          echo "==== TERRAFORM FILES ===="
+          ls -la ${{ github.event.client_payload.repository_name }}/terraform
+          echo "==== All .tf Files ===="
+          find ${{ github.event.client_payload.repository_name }}/terraform -name "*.tf"
+
       - name: Debug - Verify Final Structure
         run: |
           echo "== PROJECT DIR =="
@@ -102,7 +101,7 @@ jobs:
           if ls *.tf &>/dev/null; then
             PROJECT_TYPE="terraform"
           fi
-          echo "::set-output name=PROJECT_TYPE::$PROJECT_TYPE"
+          echo "PROJECT_TYPE=$PROJECT_TYPE" >> "$GITHUB_OUTPUT"
         working-directory: ${{ github.event.client_payload.repository_name }}
 
   static_pipeline:
@@ -113,9 +112,9 @@ jobs:
       repository: ${{ needs.detect-project-type.outputs.repository }}
       repository_name: ${{ needs.detect-project-type.outputs.repository_name }}
       branch: ${{ needs.detect-project-type.outputs.branch }}
+      has_out: ${{ steps.check_out.outputs.has_out }}
 
     steps:
-          
       - name: 🔍 Print Secret-Resolved ENV Variables
         run: |
           echo "✅ VERCEL_ORG_ID = $VERCEL_ORG_ID"
@@ -139,7 +138,7 @@ jobs:
             exit 1
           fi
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
-      
+
       - name: Use Node.js 22 (match local env)
         uses: actions/setup-node@v3
         with:
@@ -163,6 +162,20 @@ jobs:
           yarn build
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
+      # Soft check for out/ and expose as output "has_out"
+      - name: Check if out/ exists
+        id: check_out
+        run: |
+          OUT_DIR="${{ needs.detect-project-type.outputs.repository_name }}/out"
+          if [ -d "$OUT_DIR" ]; then
+            echo "has_out=true" >> "$GITHUB_OUTPUT"
+            echo "✅ out/ found at $OUT_DIR"
+          else
+            echo "has_out=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ out/ not found — skipping artifact upload"
+          fi
+
+      # Keep the informational check (never fails)
       - name: Verify out/ folder was created
         run: |
           echo "📂 Checking if '${{ needs.static_pipeline.outputs.repository_name }}/out/' folder exists..."
@@ -177,9 +190,9 @@ jobs:
           ls -la
           yarn test || echo "No tests found, skipping..."
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
-      
+
       - name: Upload Static Export (out/)
-        if: success()
+        if: steps.check_out.outputs.has_out == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: static-export
@@ -255,7 +268,7 @@ jobs:
 
   deploy-to-s3:
     needs: static_pipeline
-    if: needs.static_pipeline.outputs.branch == 'main'
+    if: needs.static_pipeline.outputs.branch == 'main' && needs.static_pipeline.outputs.has_out == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -309,102 +322,3 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id $CLOUDFRONT_ID \
             --paths "/*"
-
-
-  # terraform_pipeline:
-  #   needs: static_pipeline
-  #   if: needs.static_pipeline.outputs.branch == 'main'
-  #   runs-on: ubuntu-latest
-
-  #   steps:
-  #     - name: Checkout Target Repository
-  #       uses: actions/checkout@v4
-  #       with:
-  #         repository: ${{ needs.static_pipeline.outputs.repository }}
-  #         token: ${{ secrets.GITHUB_TOKEN }}
-  #         ref: main
-  #         path: ${{ needs.static_pipeline.outputs.repository_name }}
-
-  #     - name: Download Static Export Artifact
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: static-export
-  #         path: ${{ needs.static_pipeline.outputs.repository_name }}/out
-
-  #     - name: Verify out/ folder still exists
-  #       run: |
-  #         echo "📦 Listing all files recursively under '${{ needs.static_pipeline.outputs.repository_name }}':"
-  #         find ${{ needs.static_pipeline.outputs.repository_name }} -type f
-      
-  #         echo ""
-  #         echo "📂 Checking if '${{ needs.static_pipeline.outputs.repository_name }}/out/' folder exists..."
-      
-  #         if [ ! -d "${{ needs.static_pipeline.outputs.repository_name }}/out" ]; then
-  #           echo "❌ Build failed: '${{ needs.static_pipeline.outputs.repository_name }}/out/' folder not found. Make sure 'yarn build' generates a static export."
-  #           exit 1
-  #         else
-  #           echo "✅ '${{ needs.static_pipeline.outputs.repository_name }}/out/' folder exists."
-  #         fi
-  #         working-directory: ${{ needs.static_pipeline.outputs.repository_name }}
-
-  #     - name: Copy Static Build Output
-  #       run: |
-  #         mkdir -p static
-  #         cp -r ${{ needs.static_pipeline.outputs.repository_name }}/out/. static/
-
-  #     - name: Checkout Infra Repo to temp-infra/
-  #       uses: actions/checkout@v4
-  #       with:
-  #         repository: awc-create/awc-multi-site-cicd
-  #         token: ${{ secrets.GITHUB_TOKEN }}
-  #         path: temp-infra
-
-  #     - name: Move Terraform into Site Repo
-  #       run: |
-  #         mkdir -p ${{ needs.static_pipeline.outputs.repository_name }}/terraform
-  #         cp -r temp-infra/infra/* ${{ needs.static_pipeline.outputs.repository_name }}/terraform/
-
-  #     - name: Move Static Build into Terraform Folder
-  #       run: |
-  #         mkdir -p ${{ needs.static_pipeline.outputs.repository_name }}/terraform/site
-  #         cp -r static/* ${{ needs.static_pipeline.outputs.repository_name }}/terraform/site/
-
-  #     - name: Print Terraform File Structure
-  #       run: |
-  #         echo "==== Terraform Folder Contents ===="
-  #         ls -la ${{ needs.static_pipeline.outputs.repository_name }}/terraform
-  #         echo "==== All .tf Files ===="
-  #         find ${{ needs.static_pipeline.outputs.repository_name }}/terraform -name "*.tf"
-
-  #     - name: Configure AWS Credentials
-  #       uses: aws-actions/configure-aws-credentials@v2
-  #       with:
-  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         aws-region: ${{ env.AWS_REGION }}
-
-  #     - name: Setup Terraform
-  #       uses: hashicorp/setup-terraform@v3
-
-  #     - name: Terraform Init
-  #       run: terraform init
-  #       working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
-
-  #     - name: Terraform Plan
-  #       run: terraform plan -var="project_name=${{ env.PROJECT_NAME }}" -out=tfplan
-  #       working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
-
-  #     - name: Terraform Apply
-  #       run: terraform apply -auto-approve tfplan
-  #       working-directory: ${{ needs.static_pipeline.outputs.repository_name }}/terraform
-
-  #     - name: Sync to S3 Bucket
-  #       run: |
-  #         aws s3 sync ${{ needs.static_pipeline.outputs.repository_name }}/terraform/site s3://${{ env.S3_BUCKET_NAME }} --delete
-
-  #     - name: Invalidate CloudFront Cache
-  #       if: env.CLOUDFRONT_DISTRIBUTION_ID != ''
-  #       run: |
-  #         aws cloudfront create-invalidation \
-  #           --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
-  #           --paths "/*"
