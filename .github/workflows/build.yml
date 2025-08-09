@@ -175,15 +175,15 @@ jobs:
             echo "⚠️ out/ not found — skipping artifact upload"
           fi
 
-      # Keep the informational check (never fails)
-      - name: Verify out/ folder was created
-        run: |
-          echo "📂 Checking if '${{ needs.static_pipeline.outputs.repository_name }}/out/' folder exists..."
-          if [ ! -d "${{ needs.static_pipeline.outputs.repository_name }}/out" ]; then
-            echo "⚠️ 'out/' folder not found — skipping check for now"
-          else
-            echo "✅ '${{ needs.static_pipeline.outputs.repository_name }}/out/' folder exists."
-          fi
+      # # Keep the informational check (never fails)
+      # - name: Verify out/ folder was created
+      #   run: |
+      #     echo "📂 Checking if '${{ needs.static_pipeline.outputs.repository_name }}/out/' folder exists..."
+      #     if [ ! -d "${{ needs.static_pipeline.outputs.repository_name }}/out" ]; then
+      #       echo "⚠️ 'out/' folder not found — skipping check for now"
+      #     else
+      #       echo "✅ '${{ needs.static_pipeline.outputs.repository_name }}/out/' folder exists."
+      #     fi
 
       - name: Run Unit Tests
         run: |
