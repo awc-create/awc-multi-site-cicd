@@ -310,16 +310,18 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
-      - name: Set dynamic secrets as environment vars
-        env:
-          REPO_KEY: ${{ env.REPO_KEY_UPPER }}
-          S3_BUCKET: ${{ secrets[format('{0}_S3_BUCKET_NAME', env.REPO_KEY_UPPER)] }}
-          CLOUDFRONT_ID: ${{ secrets[format('{0}_CLOUDFRONT_DISTRIBUTION_ID', env.REPO_KEY_UPPER)] }}
+      - name: Debug AWS identity + vars
         run: |
-          echo "✅ S3_BUCKET_NAME: $S3_BUCKET"
-          echo "✅ CLOUDFRONT_DISTRIBUTION_ID: $CLOUDFRONT_ID"
-          echo "S3_BUCKET=$S3_BUCKET" >> $GITHUB_ENV
-          echo "CLOUDFRONT_ID=$CLOUDFRONT_ID" >> $GITHUB_ENV
+          aws sts get-caller-identity
+          echo "CLOUDFRONT_ID=$CLOUDFRONT_ID"
+          echo "S3_BUCKET=$S3_BUCKET"
+
+      - name: Set deployment env vars
+        run: |
+          echo "S3_BUCKET=${{ secrets[format('{0}_S3_BUCKET_NAME', needs.static_pipeline.outputs.repository_name)] }}" >> $GITHUB_ENV
+          echo "CLOUDFRONT_ID=${{ secrets[format('{0}_CLOUDFRONT_DISTRIBUTION_ID', needs.static_pipeline.outputs.repository_name)] }}" >> $GITHUB_ENV
+          echo "✅ Loaded secrets for repo: ${{ needs.static_pipeline.outputs.repository_name }}"
+
 
       - name: Sync Static Files to S3
         run: |
