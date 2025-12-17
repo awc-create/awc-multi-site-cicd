@@ -150,9 +150,16 @@ jobs:
           yarn install --immutable
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
 
-      - name: Generate Prisma Client
-        run: yarn prisma generate
+      - name: Generate Prisma Client (if present)
+        run: |
+          if [ -d "prisma" ] || grep -q '"@prisma/client"' package.json; then
+            echo "✅ Prisma detected — generating client"
+            yarn prisma generate
+          else
+            echo "ℹ️ No Prisma detected — skipping prisma generate"
+          fi
         working-directory: ${{ needs.detect-project-type.outputs.repository_name }}
+
 
       - name: Verify Working Directory and Test Files
         run: |
